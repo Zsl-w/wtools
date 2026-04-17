@@ -18,7 +18,7 @@ wTools 是一款 Windows 平台的快速启动工具，灵感来源于 macOS Spo
 
 ### 方式一：MSI 安装包（推荐）
 
-1. 访问 [Releases 页面](https://github.com/wjunl/wtools/releases)
+1. 访问 [Releases 页面]( https://github.com/Zsl-w/wtools/releases)
 2. 下载 `wTools_0.1.0_x64_en-US.msi`
 3. 双击运行安装程序
 4. 安装完成后，按 `Alt + Space` 开始使用
