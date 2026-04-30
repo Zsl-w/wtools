@@ -1,0 +1,33 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0052D9"/>
+      <stop offset="50%" stop-color="#4A90E2"/>
+      <stop offset="100%" stop-color="#7BB7F0"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#0052D9" flood-opacity="0.4"/>
+    </filter>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)" filter="url(#shadow)"/>
+  
+  <!-- Inner glow -->
+  <rect width="1024" height="1024" rx="224" fill="url(#glow)"/>
+  
+  <!-- Search magnifier icon -->
+  <g transform="translate(512, 512)">
+    <!-- Magnifying glass circle -->
+    <circle cx="-40" cy="-40" r="180" stroke="white" stroke-width="56" fill="none" stroke-linecap="round"/>
+    <!-- Handle -->
+    <line x1="85" y1="85" x2="180" y2="180" stroke="white" stroke-width="56" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Highlight -->
+  <ellipse cx="320" cy="280" rx="120" ry="80" fill="white" fill-opacity="0.15"/>
+</svg>

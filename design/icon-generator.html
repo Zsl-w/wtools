@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>wTools Icon Generator</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #2a2a2a;
+      gap: 40px;
+    }
+    .icon-container {
+      position: relative;
+    }
+    .icon {
+      width: 1024px;
+      height: 1024px;
+      border-radius: 224px;
+      background: linear-gradient(135deg, #0052D9 0%, #4A90E2 50%, #7BB7F0 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 
+        0 32px 64px rgba(0, 82, 217, 0.3),
+        inset 0 2px 4px rgba(255,255,255,0.2);
+    }
+    .search-symbol {
+      width: 480px;
+      height: 480px;
+      position: relative;
+    }
+    .magnifier {
+      width: 320px;
+      height: 320px;
+      border: 48px solid white;
+      border-radius: 50%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .handle {
+      width: 48px;
+      height: 180px;
+      background: white;
+      position: absolute;
+      bottom: 0;
+      right: 40px;
+      transform: rotate(-45deg);
+      transform-origin: bottom center;
+      border-radius: 24px;
+    }
+    .glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 640px;
+      height: 640px;
+      background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+    }
+    /* Small preview */
+    .icon.small {
+      width: 256px;
+      height: 256px;
+      border-radius: 56px;
+    }
+    .icon.small .search-symbol {
+      width: 120px;
+      height: 120px;
+    }
+    .icon.small .magnifier {
+      width: 80px;
+      height: 80px;
+      border-width: 12px;
+    }
+    .icon.small .handle {
+      width: 12px;
+      height: 45px;
+      right: 10px;
+      border-radius: 6px;
+    }
+    .icon.small .glow {
+      width: 160px;
+      height: 160px;
+    }
+    .preview-label {
+      color: white;
+      text-align: center;
+      font-family: system-ui, sans-serif;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="icon-container">
+    <div class="icon" id="icon-large">
+      <div class="glow"></div>
+      <div class="search-symbol">
+        <div class="magnifier"></div>
+        <div class="handle"></div>
+      </div>
+    </div>
+    <div class="preview-label">1024x1024 - 右键图片另存为 icon.png</div>
+  </div>
+  
+  <div class="icon-container">
+    <div class="icon small">
+      <div class="glow"></div>
+      <div class="search-symbol">
+        <div class="magnifier"></div>
+        <div class="handle"></div>
+      </div>
+    </div>
+    <div class="preview-label">256x256 预览效果</div>
+  </div>
+
+  <script>
+    // Convert to canvas and download
+    function generateIcon() {
+      const svg = `
+        <svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#0052D9"/>
+              <stop offset="50%" stop-color="#4A90E2"/>
+              <stop offset="100%" stop-color="#7BB7F0"/>
+            </linearGradient>
+            <filter id="shadow">
+              <feDropShadow dx="0" dy="32" stdDeviation="32" flood-color="#0052D9" flood-opacity="0.3"/>
+            </filter>
+          </defs>
+          <rect width="1024" height="1024" rx="224" fill="url(#bg)" filter="url(#shadow)"/>
+          <circle cx="512" cy="512" r="320" fill="white" fill-opacity="0.1"/>
+          <g transform="translate(352, 352)">
+            <circle cx="160" cy="160" r="136" stroke="white" stroke-width="48" fill="none"/>
+            <line x1="264" y1="264" x2="320" y2="320" stroke="white" stroke-width="48" stroke-linecap="round"/>
+          </g>
+        </svg>
+      `;
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        
+        const link = document.createElement('a');
+        link.download = 'icon.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+    }
+    
+    // Auto download on load
+    window.onload = generateIcon;
+  </script>
+</body>
+</html>
