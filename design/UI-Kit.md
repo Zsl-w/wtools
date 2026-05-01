@@ -31,17 +31,27 @@
 
 ```css
 :root {
-  /* Primary - TDesign 品牌蓝 */
-  --primary-50: #EEF2FC;
-  --primary-100: #D9E5FC;
-  --primary-200: #B6CBF9;
-  --primary-300: #8AABF5;
-  --primary-400: #5C8AF0;
-  --primary-500: #0052D9;  /* 主色 */
-  --primary-600: #003CAB;
-  --primary-700: #002A7D;
-  --primary-800: #001B4F;
-  --primary-900: #000F29;
+  /* Primary - Teal 青色 */
+  --primary-50: #F0FDFA;
+  --primary-100: #CCFBF1;
+  --primary-200: #99F6E4;
+  --primary-300: #5EEAD4;
+  --primary-400: #2DD4BF;
+  --primary-500: #14B8A6;  /* 主色 */
+  --primary-600: #0D9488;
+  --primary-700: #0F766E;
+  --primary-800: #115E59;
+  --primary-900: #134E4A;
+
+  /* Accent - 品牌色语义化变体 */
+  --accent: #14B8A6;
+  --accent-light: #5EEAD4;
+  --accent-subtle: rgba(20, 184, 166, 0.12);
+  --accent-glow: rgba(20, 184, 166, 0.15);
+  --selection-bg: rgba(20, 184, 166, 0.12);
+  --selection-border: rgba(20, 184, 166, 0.3);
+  --highlight-bg: rgba(20, 184, 166, 0.2);
+  --highlight-text: #0D9488;
 
   /* Neutral - 中性灰 */
   --gray-50: #F5F5F5;
@@ -71,10 +81,9 @@
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-bg-hover: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.15);
-  --glass-blur: 20px;
-  
+  --glass-shadow: 0 25px 50px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.3);
+  --glass-blur: blur(40px) saturate(180%);
+
   --text-primary: #1A1A1A;
   --text-secondary: #666666;
   --text-tertiary: #9E9E9E;
@@ -82,12 +91,20 @@
 
 [data-theme="dark"] {
   /* Dark Mode */
-  --glass-bg: rgba(30, 30, 32, 0.8);
-  --glass-bg-hover: rgba(44, 44, 46, 0.9);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --glass-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.5);
-  
+  --glass-bg: rgba(40, 40, 42, 0.65);
+  --glass-bg-hover: rgba(55, 55, 57, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.03);
+
+  --accent: #5EEAD4;
+  --accent-light: #99F6E4;
+  --accent-subtle: rgba(20, 184, 166, 0.2);
+  --accent-glow: rgba(20, 184, 166, 0.2);
+  --selection-bg: rgba(20, 184, 166, 0.2);
+  --selection-border: rgba(20, 184, 166, 0.4);
+  --highlight-bg: rgba(20, 184, 166, 0.3);
+  --highlight-text: #5EEAD4;
+
   --text-primary: #FFFFFF;
   --text-secondary: #98989F;
   --text-tertiary: #636366;
@@ -102,9 +119,9 @@
 
 ```css
 :root {
-  --font-display: 'Outfit', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-body: 'Outfit', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-display: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', 'Consolas', 'HarmonyOS Sans SC', monospace;
 }
 ```
 
@@ -178,7 +195,7 @@
     0 2px 8px rgba(0, 0, 0, 0.05);
   
   /* 搜索栏发光 */
-  --shadow-glow: 0 0 20px rgba(0, 82, 217, 0.3);
+  --shadow-glow: 0 0 60px var(--accent-glow);
 }
 
 [data-theme="dark"] {
@@ -199,31 +216,30 @@
 .search-bar {
   /* 布局 */
   width: 100%;
-  height: 56px;
-  padding: 0 24px;
+  height: 52px;
+  padding: 0 6px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  
+  gap: 10px;
+
   /* 视觉 */
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-2xl);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
   /* 阴影 */
-  box-shadow: 0 4px 20px rgba(0, 82, 217, 0.15);
-  
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
   /* 交互 */
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-bar:focus-within {
-  border-color: var(--primary-500);
-  box-shadow: 
-    0 4px 20px rgba(0, 82, 217, 0.15),
-    0 0 0 3px rgba(0, 82, 217, 0.15);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--selection-border);
+  box-shadow: 0 4px 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .search-bar input {
@@ -245,41 +261,54 @@
 ```css
 .result-item {
   /* 布局 */
-  height: 48px;
-  padding: 12px 16px;
+  height: 56px;
+  padding: 8px 16px;
+  margin: 4px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  
+
   /* 视觉 */
-  background: transparent;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-md);
-  
+
   /* 交互 */
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 180ms ease;
 }
 
 .result-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .result-item.selected {
-  background: rgba(0, 82, 217, 0.1);
+  background: var(--selection-bg);
+  border-color: var(--selection-border);
+  box-shadow: 0 4px 16px var(--accent-glow);
 }
 
 .result-item.selected::before {
   content: '';
   position: absolute;
   left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   width: 3px;
   height: 24px;
-  background: var(--primary-500);
+  background: var(--accent);
   border-radius: 0 2px 2px 0;
 }
 
+[data-theme="dark"] .result-item {
+  background: rgba(30, 30, 35, 0.4);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 [data-theme="dark"] .result-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(50, 50, 60, 0.6);
 }
 ```
 
@@ -461,30 +490,34 @@
 
 | 状态 | 宽度 | 高度 | 说明 |
 |------|------|------|------|
-| 初始 | 680px | 120px | 仅搜索栏 |
-| 有结果 | 680px | 动态 | 展开结果，最大 520px |
+| 固定 | 720px | 520px | 搜索栏 + 结果列表，固定尺寸 |
 
 ### 内容区域
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         窗口边距 24px                            │
+│  [拖拽区域 32px]                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │                    搜索栏 56px                           │   │
+│   │  🔍  搜索应用或文件...                    搜索 | 剪贴板 │   │
+│   │                    搜索栏 52px                           │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │   ┌─────────────────────────────────────────────────────────┐   │
-│   │  分类标题 11px                                          │   │
+│   │  常用应用                                               │   │
 │   │  ┌──────────────────────────────────────────────────┐  │   │
-│   │  │ 序号  图标  名称                    路径        │  │   │
-│   │  │  1    🌐   Google Chrome            chrome      │  │   │
-│   │  │  2    📝   Visual Studio Code       code        │  │   │
+│   │  │ ▪  🌐  Google Chrome                   应用  ↵  │  │   │
+│   │  │ ▪  📝  Visual Studio Code              应用     │  │   │
+│   │  │  ...                                            │  │   │
+│   │  └──────────────────────────────────────────────────┘  │   │
+│   │  文件与文件夹                                           │   │
+│   │  ┌──────────────────────────────────────────────────┐  │   │
+│   │  │ ▪  📁  Documents                       文件夹    │  │   │
 │   │  │  ...                                            │  │   │
 │   │  └──────────────────────────────────────────────────┘  │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │   ─────────────────────────────────────────────────────────      │
-│   状态栏 36px                                                    │
+│   ⚙️ 设置  ↑↓ 选择  Enter 打开  Alt+数字 快速打开  Esc 关闭      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -536,5 +569,5 @@
 
 ---
 
-**文档版本**: v2.0  
-**最后更新**: 2026-04-15
+**文档版本**: v2.2
+**最后更新**: 2026-05-01

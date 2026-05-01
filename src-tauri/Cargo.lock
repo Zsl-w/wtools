@@ -5949,7 +5949,7 @@ dependencies = [
 
 [[package]]
 name = "wtools"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "base64 0.13.1",
  "dirs 5.0.1",

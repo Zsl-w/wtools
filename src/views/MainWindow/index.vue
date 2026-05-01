@@ -23,7 +23,6 @@ const handleKeyDown = (e: KeyboardEvent) => {
     e.stopPropagation()
     if (mode.value === 'search') {
       mode.value = 'clipboard'
-      clipboardListRef.value?.loadHistory()
     } else {
       mode.value = 'search'
     }
@@ -133,8 +132,12 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="result-area">
-        <ResultList v-if="mode === 'search'" />
-        <ClipboardList v-else ref="clipboardListRef" />
+        <div class="mode-panel" :class="{ active: mode === 'search' }">
+          <ResultList />
+        </div>
+        <div class="mode-panel" :class="{ active: mode === 'clipboard' }">
+          <ClipboardList ref="clipboardListRef" />
+        </div>
       </div>
     </div>
   </div>
@@ -144,12 +147,12 @@ onUnmounted(() => {
 .main-window {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.1) 50%, rgba(236, 72, 153, 0.05) 100%),
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(6, 182, 212, 0.1) 50%, rgba(16, 185, 129, 0.05) 100%),
               var(--glass-bg);
   border: none;
-  border-radius: 24px;
+  border-radius: 8px;
   box-shadow: var(--glass-shadow),
-              0 0 60px rgba(99, 102, 241, 0.15);
+              0 0 60px var(--accent-glow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -202,8 +205,8 @@ onUnmounted(() => {
 }
 
 .mode-indicator span.active {
-  color: #6366F1;
-  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .mode-indicator .separator {
@@ -213,16 +216,17 @@ onUnmounted(() => {
 .result-area {
   flex: 1;
   overflow: hidden;
+  position: relative;
   background: rgba(255, 255, 255, 0.4);
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="dark"] .main-window {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(168, 85, 247, 0.15) 50%, rgba(236, 72, 153, 0.1) 100%),
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.2) 0%, rgba(6, 182, 212, 0.15) 50%, rgba(16, 185, 129, 0.1) 100%),
               var(--glass-bg);
   box-shadow: var(--glass-shadow),
-              0 0 60px rgba(99, 102, 241, 0.2);
+              0 0 60px var(--accent-glow);
 }
 
 [data-theme="dark"] .result-area {
@@ -231,7 +235,25 @@ onUnmounted(() => {
 }
 
 [data-theme="dark"] .mode-indicator span.active {
-  color: #A5B4FC;
-  background: rgba(99, 102, 241, 0.2);
+  color: var(--accent-light);
+  background: var(--accent-subtle);
+}
+
+/* 模式面板切换 */
+.mode-panel {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  display: flex;
+  flex-direction: column;
+}
+
+.mode-panel.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 </style>

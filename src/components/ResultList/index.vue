@@ -132,6 +132,33 @@ const addCustomApp = async () => {
   position: relative;
 }
 
+.section-items > :deep(.result-item) {
+  opacity: 0;
+  animation: result-stagger 250ms var(--ease-out) forwards;
+}
+
+.section-items > :deep(.result-item):nth-child(1) { animation-delay: 0ms; }
+.section-items > :deep(.result-item):nth-child(2) { animation-delay: 25ms; }
+.section-items > :deep(.result-item):nth-child(3) { animation-delay: 50ms; }
+.section-items > :deep(.result-item):nth-child(4) { animation-delay: 75ms; }
+.section-items > :deep(.result-item):nth-child(5) { animation-delay: 100ms; }
+.section-items > :deep(.result-item):nth-child(6) { animation-delay: 125ms; }
+.section-items > :deep(.result-item):nth-child(7) { animation-delay: 150ms; }
+.section-items > :deep(.result-item):nth-child(8) { animation-delay: 175ms; }
+.section-items > :deep(.result-item):nth-child(9) { animation-delay: 200ms; }
+.section-items > :deep(.result-item):nth-child(10) { animation-delay: 225ms; }
+
+@keyframes result-stagger {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 [data-theme="dark"] .result-list {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }

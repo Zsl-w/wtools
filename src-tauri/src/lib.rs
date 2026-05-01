@@ -146,29 +146,28 @@ pub fn run() {
             // 获取主窗口
             let main_window = app.get_webview_window("main").unwrap();
 
-            // 如果是开机自启动，隐藏窗口
-            if is_autostart {
-                let _ = main_window.hide();
-            }
-
             // Windows: 使用DWM API移除系统边框
             #[cfg(target_os = "windows")]
             {
                 if let Ok(hwnd) = main_window.hwnd() {
                     let hwnd = hwnd.0;
-                    
+
                     unsafe {
                         use winapi::shared::windef::HWND;
-                        use winapi::um::winuser::{GetWindowLongW, SetWindowLongW, SetWindowPos,
-                            GWL_STYLE, GWL_EXSTYLE, 
+                        use winapi::um::winuser::{GetWindowLongW, SetWindowLongW, SetWindowPos, ShowWindow,
+                            GWL_STYLE, GWL_EXSTYLE,
                             WS_EX_WINDOWEDGE, WS_EX_CLIENTEDGE, WS_EX_STATICEDGE, WS_EX_LAYERED,
                             SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE,
+                            SW_HIDE,
                             WS_POPUP};
                         use winapi::um::dwmapi::{DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DwmEnableBlurBehindWindow};
                         use winapi::um::uxtheme::MARGINS;
-                        
+
                         let hwnd = hwnd as HWND;
-                        
+
+                        // 0. 先确保窗口隐藏，防止原生标题栏闪现
+                        ShowWindow(hwnd, SW_HIDE);
+
                         // 1. 先设置基础样式为 WS_POPUP（无边框窗口）
                         SetWindowLongW(hwnd, GWL_STYLE, WS_POPUP as i32);
                         
@@ -182,11 +181,11 @@ pub fn run() {
                         let margins = MARGINS { cxLeftWidth: -1, cxRightWidth: -1, cyTopHeight: -1, cyBottomHeight: -1 };
                         DwmExtendFrameIntoClientArea(hwnd, &margins);
                         
-                        // 4. Windows 11: 尝试将边框颜色设为透明（属性34 = DWMWA_BORDER_COLOR）
-                        let color: u32 = 0xFFFFFFFF; // DWMWA_COLOR_NONE
+                        // 4. Windows 11: 禁用窗口边框（DWMWA_COLOR_NONE = 0xFFFFFFFE）
+                        let color: u32 = 0xFFFFFFFE;
                         let _ = DwmSetWindowAttribute(hwnd, 34, &color as *const _ as *const _, std::mem::size_of::<u32>() as u32);
                         
-                        // 5. Windows 11: 设置圆角（属性33 = DWMWA_WINDOW_CORNER_PREFERENCE）
+                        // 5. Windows 11: 圆角与 CSS border-radius: 8px 保持一致
                         let corner_pref: u32 = 2; // DWMWCP_ROUND
                         let _ = DwmSetWindowAttribute(hwnd, 33, &corner_pref as *const _ as *const _, std::mem::size_of::<u32>() as u32);
                         

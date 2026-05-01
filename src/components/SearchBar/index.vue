@@ -143,8 +143,8 @@ onMounted(() => {
 
 .search-bar:focus-within {
   background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-color: var(--selection-border);
+  box-shadow: 0 4px 24px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .search-icon-wrapper {
@@ -153,13 +153,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-subtle);
   border-radius: 12px;
   flex-shrink: 0;
 }
 
 .search-icon {
-  color: #6366F1;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -218,16 +218,16 @@ input::placeholder {
 
 [data-theme="dark"] .search-bar:focus-within {
   background: rgba(40, 40, 50, 0.8);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 4px 24px rgba(99, 102, 241, 0.2);
+  border-color: var(--selection-border);
+  box-shadow: 0 4px 24px var(--accent-glow);
 }
 
 [data-theme="dark"] .search-icon-wrapper {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--accent-subtle);
 }
 
 [data-theme="dark"] .search-icon {
-  color: #A5B4FC;
+  color: var(--accent-light);
 }
 
 [data-theme="dark"] .clear-btn {

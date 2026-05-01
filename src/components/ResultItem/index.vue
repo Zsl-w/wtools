@@ -215,9 +215,21 @@ const highlightedName = computed(() => {
 }
 
 .result-item.selected {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
+  background: var(--selection-bg);
+  border-color: var(--selection-border);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.result-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
 }
 
 /* 类型标识点 */
@@ -286,8 +298,8 @@ const highlightedName = computed(() => {
 }
 
 .item-name :deep(mark) {
-  background: rgba(99, 102, 241, 0.2);
-  color: #6366F1;
+  background: var(--highlight-bg);
+  color: var(--highlight-text);
   border-radius: 3px;
   padding: 0 3px;
 }
@@ -325,8 +337,8 @@ const highlightedName = computed(() => {
   justify-content: center;
   font-size: 12px;
   font-weight: 600;
-  color: #6366F1;
-  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent);
+  background: var(--accent-subtle);
   border-radius: 6px;
 }
 
@@ -341,8 +353,8 @@ const highlightedName = computed(() => {
 }
 
 [data-theme="dark"] .result-item.selected {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
+  background: var(--selection-bg);
+  border-color: var(--selection-border);
 }
 
 [data-theme="dark"] .item-icon {
@@ -354,13 +366,13 @@ const highlightedName = computed(() => {
 }
 
 [data-theme="dark"] .item-name :deep(mark) {
-  background: rgba(99, 102, 241, 0.3);
-  color: #A5B4FC;
+  background: var(--highlight-bg);
+  color: var(--highlight-text);
 }
 
 [data-theme="dark"] .shortcut-hint {
-  background: rgba(99, 102, 241, 0.25);
-  color: #A5B4FC;
+  background: var(--accent-subtle);
+  color: var(--accent-light);
 }
 
 /* 动画 */

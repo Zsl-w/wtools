@@ -1,15 +1,25 @@
 :root {
-  /* Primary - TDesign 品牌蓝 */
-  --primary-50: #EEF2FC;
-  --primary-100: #D9E5FC;
-  --primary-200: #B6CBF9;
-  --primary-300: #8AABF5;
-  --primary-400: #5C8AF0;
-  --primary-500: #0052D9;
-  --primary-600: #003CAB;
-  --primary-700: #002A7D;
-  --primary-800: #001B4F;
-  --primary-900: #000F29;
+  /* Primary - Teal 青色 */
+  --primary-50: #F0FDFA;
+  --primary-100: #CCFBF1;
+  --primary-200: #99F6E4;
+  --primary-300: #5EEAD4;
+  --primary-400: #2DD4BF;
+  --primary-500: #14B8A6;
+  --primary-600: #0D9488;
+  --primary-700: #0F766E;
+  --primary-800: #115E59;
+  --primary-900: #134E4A;
+
+  /* Accent - 品牌色语义化变体 */
+  --accent: #14B8A6;
+  --accent-light: #5EEAD4;
+  --accent-subtle: rgba(20, 184, 166, 0.12);
+  --accent-glow: rgba(20, 184, 166, 0.15);
+  --selection-bg: rgba(20, 184, 166, 0.12);
+  --selection-border: rgba(20, 184, 166, 0.3);
+  --highlight-bg: rgba(20, 184, 166, 0.2);
+  --highlight-text: #0D9488;
 
   /* Neutral - 中性灰 */
   --gray-50: #F5F5F5;
@@ -31,7 +41,7 @@
   /* Glass Effect - 蓝紫色渐变毛玻璃风格 */
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-bg-hover: rgba(255, 255, 255, 0.85);
-  --glass-bg-selected: rgba(99, 102, 241, 0.2);
+  --glass-bg-selected: rgba(20, 184, 166, 0.2);
   --glass-border: rgba(255, 255, 255, 0.5);
   --glass-shadow: 0 25px 50px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.3);
   --glass-blur: blur(40px) saturate(180%);
@@ -81,12 +91,21 @@
   --bg-primary: #1C1C1E;
   --bg-secondary: #2C2C2E;
   --bg-tertiary: #3A3A3C;
-  
+
   --glass-bg: rgba(40, 40, 42, 0.65);
   --glass-bg-hover: rgba(55, 55, 57, 0.75);
   --glass-bg-selected: rgba(0, 82, 217, 0.25);
   --glass-border: rgba(255, 255, 255, 0.06);
   --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.03);
+
+  --accent: #5EEAD4;
+  --accent-light: #99F6E4;
+  --accent-subtle: rgba(20, 184, 166, 0.2);
+  --accent-glow: rgba(20, 184, 166, 0.2);
+  --selection-bg: rgba(20, 184, 166, 0.2);
+  --selection-border: rgba(20, 184, 166, 0.4);
+  --highlight-bg: rgba(20, 184, 166, 0.3);
+  --highlight-text: #5EEAD4;
 
   --text-primary: #FFFFFF;
   --text-secondary: #98989F;

@@ -1,6 +1,6 @@
 [package]
 name = "wtools"
-version = "0.3.1"
+version = "0.3.2"
 description = "极简桌面应用与文件快速搜索工具"
 authors = ["wTools Team"]
 edition = "2021"

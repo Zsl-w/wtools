@@ -255,7 +255,7 @@ onMounted(loadHistory)
 }
 
 .clipboard-item.selected {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--selection-bg);
 }
 
 .item-content {
