@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useSearchStore } from '@/stores/search'
 
 interface ClipboardItem {
   id: string
@@ -9,12 +10,21 @@ interface ClipboardItem {
   content: string | null
   timestamp: number
   size: number
+  pinned: boolean
 }
+
+const searchStore = useSearchStore()
 
 const items = ref<ClipboardItem[]>([])
 const selectedIndex = ref(0)
 const itemRefs = ref<Map<number, HTMLElement>>(new Map())
 const showToast = ref(false)
+
+const filteredItems = computed(() => {
+  const q = searchStore.query?.trim()
+  if (!q) return items.value
+  return items.value.filter(item => item.preview.toLowerCase().includes(q.toLowerCase()))
+})
 
 const loadHistory = async () => {
   try {
@@ -66,6 +76,15 @@ const clearHistory = async () => {
   }
 }
 
+const togglePin = async (item: ClipboardItem) => {
+  try {
+    await invoke('toggle_pin_clipboard_item', { id: item.id })
+    await loadHistory()
+  } catch (e) {
+    console.error('Failed to toggle pin:', e)
+  }
+}
+
 const formatTime = (timestamp: number): string => {
   const date = new Date(timestamp * 1000)
   const now = new Date()
@@ -82,14 +101,14 @@ const formatTime = (timestamp: number): string => {
 }
 
 const selectNext = () => {
-  if (items.value.length > 0) {
-    selectedIndex.value = (selectedIndex.value + 1) % items.value.length
+  if (filteredItems.value.length > 0) {
+    selectedIndex.value = (selectedIndex.value + 1) % filteredItems.value.length
   }
 }
 
 const selectPrev = () => {
-  if (items.value.length > 0) {
-    selectedIndex.value = (selectedIndex.value - 1 + items.value.length) % items.value.length
+  if (filteredItems.value.length > 0) {
+    selectedIndex.value = (selectedIndex.value - 1 + filteredItems.value.length) % filteredItems.value.length
   }
 }
 
@@ -108,7 +127,7 @@ watch(selectedIndex, async () => {
 })
 
 const copySelected = () => {
-  const item = items.value[selectedIndex.value]
+  const item = filteredItems.value[selectedIndex.value]
   if (item) {
     copyItem(item)
   }
@@ -140,14 +159,14 @@ onMounted(loadHistory)
         <span class="title">剪贴板历史</span>
         <button class="clear-btn" @click="clearHistory">清空</button>
       </div>
-      
+
       <div class="items-container">
         <div
-          v-for="(item, index) in items"
+          v-for="(item, index) in filteredItems"
           :key="item.id"
           :ref="(el) => setItemRef(index, el as HTMLElement)"
           class="clipboard-item"
-          :class="{ selected: index === selectedIndex }"
+          :class="{ selected: index === selectedIndex, pinned: item.pinned }"
           @click="copyItem(item)"
         >
           <div class="item-content">
@@ -155,13 +174,23 @@ onMounted(loadHistory)
               <img :src="item.content" alt="" class="preview-image" />
             </div>
             <div class="item-preview text" v-else>{{ item.preview }}</div>
-            <div class="item-time">{{ formatTime(item.timestamp) }}</div>
+            <div class="item-time">
+              <span v-if="item.pinned" class="pin-badge">固定</span>
+              {{ formatTime(item.timestamp) }}
+            </div>
           </div>
-          <button class="delete-btn" @click.stop="deleteItem(item.id)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
+          <div class="item-actions">
+            <button class="pin-btn" @click.stop="togglePin(item)" :title="item.pinned ? '取消固定' : '固定'">
+              <svg width="14" height="14" viewBox="0 0 24 24" :fill="item.pinned ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+                <path d="M12 17v5M9 3h6l1 7h1v3H7v-3h1z" />
+              </svg>
+            </button>
+            <button class="delete-btn" @click.stop="deleteItem(item.id)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -317,6 +346,51 @@ onMounted(loadHistory)
   color: #ef4444;
 }
 
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.clipboard-item:hover .item-actions {
+  opacity: 1;
+}
+
+.pin-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: all 0.15s ease;
+}
+
+.pin-btn:hover {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.clipboard-item.pinned {
+  background: rgba(20, 184, 166, 0.04);
+}
+
+.pin-badge {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+
 /* 暗色模式 */
 [data-theme="dark"] .list-header {
   border-bottom-color: rgba(255, 255, 255, 0.05);
@@ -332,6 +406,19 @@ onMounted(loadHistory)
 
 [data-theme="dark"] .delete-btn {
   background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .pin-btn {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .pin-btn:hover {
+  background: var(--accent-subtle);
+  color: var(--accent-light);
+}
+
+[data-theme="dark"] .clipboard-item.pinned {
+  background: rgba(20, 184, 166, 0.08);
 }
 
 .toast {

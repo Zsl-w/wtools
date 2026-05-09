@@ -7,12 +7,14 @@
 
 **核心依赖**：
 - **应用搜索**：内置应用索引
-- **文件搜索**：调用本地 [Everything](https://www.voidtools.com/) 服务
+- **文件搜索**：调用本地 [Everything](https://www.voidtools.com/) 服务（HTTP API）
 
 ### 1.2 核心特性
 - **极速响应**：毫秒级窗口唤起，流畅的动画体验
 - **应用搜索**：快速定位并启动本地应用程序
 - **文件搜索**：利用 Everything 实现毫秒级全盘文件搜索
+- **文件预览**：支持图片、文本、PDF、Office 文档等文件的即时预览
+- **剪贴板历史**：自动记录剪贴板内容，支持文本和图片的回溯粘贴
 - **全局快捷键**：一键唤起，无需鼠标操作
 - **智能排序**：基于使用频率和时间的智能排序
 
@@ -36,7 +38,9 @@
 ### 2.2 用户场景
 1. **快速启动应用**：`Alt+Space` → 输入「chrome」→ 回车启动
 2. **查找文件**：`Alt+Space` → 输入「报告」→ 找到并打开文档
-3. **打开文件夹**：`Alt+Space` → 输入「下载」→ 定位到下载文件夹
+3. **预览文件内容**：选中文件结果 → 右侧面板即时预览
+4. **回溯剪贴板**：`Tab` 切换到剪贴板 → 选择历史记录 → 回车复制
+5. **打开文件夹**：`Alt+Space` → 输入「下载」→ 定位到下载文件夹
 
 ---
 
@@ -50,10 +54,15 @@
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │                    搜索核心                            │  │
 │  │   ┌─────────────┐   ┌─────────────┐   ┌───────────┐  │  │
-│  │   │   搜索框     │   │  结果列表    │   │  状态栏    │  │  │
-│  │   │  - 输入处理  │   │  - 应用结果  │   │  - 快捷键  │  │  │
-│  │   │  - 实时匹配  │   │  - 文件结果  │   │  - 计数    │  │  │
-│  │   └─────────────┘   └─────────────┘   └───────────┘  │  │
+│  │   │   搜索框     │   │  结果列表    │   │ 文件预览   │  │  │
+│  │   │  - 输入处理  │   │  - 应用结果  │   │  - 图片    │  │  │
+│  │   │  - 实时匹配  │   │  - 文件结果  │   │  - 文本    │  │  │
+│  │   └─────────────┘   └─────────────┘   │  - Office  │  │  │
+│  │                                         └───────────┘  │  │
+│  │  ┌──────────────────────────────────────────────────┐  │  │
+│  │  │              剪贴板面板 (Tab 切换)                 │  │  │
+│  │  │   - 历史列表   - 文本/图片预览   - 复制/固定/删除  │  │  │
+│  │  └──────────────────────────────────────────────────┘  │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -61,10 +70,16 @@
 │                      逻辑层 (Core)                           │
 │  ┌─────────────────┐   ┌─────────────────┐   ┌───────────┐  │
 │  │    搜索引擎      │   │   应用索引管理    │   │  配置管理  │  │
-│  │   - 模糊匹配     │   │   - 应用扫描     │   │  - 偏好    │  │
-│  │   - 权重排序     │   │   - 索引更新     │   │  - 历史    │  │
-│  │   - 结果合并     │   │   - 图标提取     │   │  - 热键    │  │
+│  │   - 模糊匹配     │   │   - 应用扫描     │   │  - 主题    │  │
+│  │   - 拼音别名     │   │   - 图标提取     │   │  - 自启    │  │
+│  │   - 结果合并     │   │   - 使用统计     │   │  - 自定义  │  │
 │  └─────────────────┘   └─────────────────┘   └───────────┘  │
+│  ┌─────────────────┐   ┌─────────────────────────────────┐  │
+│  │  剪贴板管理      │   │         文件预览引擎              │  │
+│  │   - 后台监控     │   │   - Rust 文本提取 (PDF/DOCX/...) │  │
+│  │   - 持久化存储   │   │   - Windows Preview Handler     │  │
+│  │   - 图片处理     │   │   - 图片缩略图                   │  │
+│  └─────────────────┘   └─────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────┐
@@ -72,20 +87,23 @@
 │  ┌─────────────────┐   ┌─────────────────┐   ┌───────────┐  │
 │  │    窗口管理      │   │    系统API       │   │  全局热键  │  │
 │  │   - 显隐控制     │   │   - 应用扫描     │   │  - 注册    │  │
-│  │   - 位置记忆     │   │   - Everything   │   │  - 监听    │  │
-│  │   - 动画效果     │   │   - 执行启动     │   │  - 冲突    │  │
+│  │   - 毛玻璃效果   │   │   - Everything   │   │  - 监听    │  │
+│  │   - 托盘菜单     │   │   - 剪贴板读取   │   │  - 冲突    │  │
+│  │                  │   │   - COM 预览     │   │           │  │
 │  └─────────────────┘   └─────────────────┘   └───────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.2 模块职责
 
-| 模块 | 职责 | 技术实现 |
-|------|------|---------|
-| 搜索核心 | 处理用户输入、合并应用和文件结果、排序渲染 | Fuse.js + 自定义权重算法 |
-| 应用索引管理 | 本地应用扫描、索引构建、图标提取 | 后台定时扫描 + 注册表读取 |
-| Everything 接口 | 调用 Everything SDK 搜索文件 | Everything DLL / CLI |
-| 配置管理 | 用户偏好、搜索历史、热键设置 | Pinia + Tauri Store |
+| 模块 | 职责 | 技术实现 | 状态 |
+|------|------|---------|------|
+| 搜索核心 | 处理用户输入、合并应用和文件结果、排序渲染 | Fuse.js + 使用频率排序 | ✅ |
+| 应用索引管理 | 本地应用扫描、索引构建、图标提取 | 启动扫描 + 5分钟缓存 | ✅ |
+| Everything 接口 | 调用 Everything HTTP API 搜索文件 | reqwest + JSON 解析 | ✅ |
+| 剪贴板管理 | 后台监控剪贴板变化、历史存储、内容去重 | Win32 API + 500ms 轮询 | ✅ |
+| 文件预览 | 多格式文件文本提取 + 系统 Preview Handler | Rust 解析 + COM 互操作 | ✅ |
+| 配置管理 | 用户主题、自启、自定义应用 | Pinia + JSON 文件 | ⚠️ |
 
 ---
 
@@ -96,32 +114,38 @@
 #### 4.1.1 主搜索框
 - **触发方式**：全局快捷键（默认 `Alt+Space`）
 - **输入框特性**：
-  - 单行输入，自动聚焦
-  - 占位符文案：「搜索应用或文件...」
-  - 支持拼音搜索（如输入「js」匹配「记事本」），推荐使用 `pinyin-pro` 库预处理应用名称生成拼音索引
-  - 支持首字母缩写（如输入「vx」匹配「Visual Studio Code」）（可选）
-  - 支持模糊匹配
+  - 单行输入，自动聚焦 ✅
+  - 占位符文案：搜索模式「搜索应用或文件...」/ 剪贴板模式「搜索剪贴板...」✅
+  - 支持拼音搜索（如输入「js」匹配「记事本」），通过预处理别名映射实现 ✅
+  - 支持首字母缩写（如输入「vx」匹配「Visual Studio Code」）✅
+  - 支持模糊匹配 ✅
+  - 🔲 计划引入 `pinyin-pro` 库替代硬编码别名映射
 
 #### 4.1.2 搜索技术实现
 
-| 功能 | 技术方案 | 说明 |
-|------|---------|------|
-| 模糊匹配 | Fuse.js | 英文及短拼音友好，内置权重算法 |
-| 拼音匹配 | `pinyin-pro` | 预处理应用名称，生成拼音索引 |
-| 备选拼音库 | `mkci`、`pinyin-match` | 轻量级替代方案 |
+| 功能 | 技术方案 | 说明 | 状态 |
+|------|---------|------|------|
+| 模糊匹配 | Fuse.js | 英文及短拼音友好，threshold 0.4 | ✅ |
+| 拼音匹配 | 硬编码别名映射 | 覆盖 40+ 常用中文应用，支持多种别名形式 | ✅ |
+| 计划升级 | `pinyin-pro` | 自动生成拼音索引，替代手工维护 | 🔲 |
 
 #### 4.1.3 搜索结果类型
 
 | 类型 | 匹配项 | 图标 | 操作 |
 |------|--------|------|------|
-| 应用程序 | 本地安装的软件、UWP应用 | 应用图标 | 启动应用 |
-| 文件 | 文档、图片、视频等 | 文件类型图标 | 打开文件 |
+| 应用程序 | 本地安装的软件、UWP应用 | 应用图标 (base64) | 启动应用 |
+| 文件 | 文档、图片、视频等 | 文件类型图标 + 缩略图 | 打开文件 + 预览 |
 | 文件夹 | 本地文件夹 | 文件夹图标 | 在资源管理器中打开 |
 
-#### 4.1.3 搜索排序算法
+#### 4.1.4 搜索排序算法
 
 ```
-权重计算公式：
+当前实现：
+1. Fuse.js 模糊匹配评分 (threshold 0.4)
+2. 应用按使用频次降序排列 (count + last_used)
+3. 应用优先于文件
+
+计划权重公式：
 Score = BaseScore × MatchWeight × FrequencyWeight × RecencyWeight × TypeWeight
 
 BaseScore: 基础匹配分数 (0-100)
@@ -131,24 +155,27 @@ RecencyWeight: 最近使用权重 (1.0x - 1.5x)
 TypeWeight: 类型权重（应用 1.2x > 文件 1.0x）
 ```
 
-#### 4.1.4 结果展示规则
-- **最大结果数**：15 条（应用最多 8 条 + 文件最多 7 条）
-- **分类显示**：应用和文件分组展示，应用优先
-- **高亮匹配**：匹配的文字使用主色高亮
-- **快捷编号**：前 9 条结果显示编号（1-9），支持 `Alt+数字` 快速打开
+#### 4.1.5 结果展示规则
+- **最大结果数**：12 条（应用最多 6 条 + 文件最多 6 条），🔲 计划扩展至 15 条
+- **空查询**：显示最常用的 12 个应用，按使用频次排序 ✅
+- **分类显示**：应用和文件分组展示，应用优先 ✅
+- **高亮匹配**：匹配的文字使用主色 `<mark>` 高亮 ✅
+- **🔲 快捷编号**：前 9 条结果显示编号（1-9），支持 `Alt+数字` 快速打开
+- **150ms 输入防抖** ✅
 
 ### 4.2 应用搜索
 
 #### 4.2.1 应用索引范围
-- Windows: 开始菜单、桌面快捷方式、注册表安装项
-- macOS: /Applications、~/Applications
-- Linux: /usr/share/applications、~/.local/share/applications
+- Windows: 开始菜单（用户+系统）、桌面（用户+公用）、Program Files、Program Files (x86)、系统工具 ✅
+- 扫描深度：最大 2 层，每目录最多 50 条 ✅
+- 路径验证：启动时过滤无效路径 ✅
+- ~~macOS / Linux~~：当前仅支持 Windows
 
 #### 4.2.2 索引更新策略
-- **首次启动**：全量扫描，显示加载状态
-- **定时更新**：每 30 分钟后台增量扫描
-- **实时监听**：监控常见安装目录变化（可选，性能考虑）
-- **手动刷新**：设置中提供「重新索引」按钮
+- **首次启动**：全量扫描 ✅
+- **缓存策略**：5 分钟缓存 (OnceLock<Mutex<Option<AppCache>>>) ✅
+- **🔲 定时更新**：每 30 分钟后台增量扫描
+- **🔲 手动刷新**：设置中提供「重新索引」按钮
 
 ### 4.3 文件搜索（基于 Everything）
 
@@ -158,9 +185,11 @@ wTools 通过以下方式调用本地 Everything 服务：
 
 | 方式 | 优点 | 缺点 | 选用方案 |
 |------|------|------|---------|
-| **Everything SDK (DLL)** | 极速、功能完整 | 需处理 32/64 位兼容 | ✅ 主要方案 |
-| **es.exe (CLI)** | 简单易用、跨架构 | 进程开销略高 | ✅ 备选方案 |
-| **HTTP API (ETP)** | 可远程调用 | 需开启 ETP 服务器 | ❌ 暂不支持 |
+| **HTTP API** | 简单易用、无需 FFI、跨架构 | 需启用 HTTP 服务器 | ✅ 当前方案 |
+| **Everything SDK (DLL)** | 极速、功能完整 | 需处理 32/64 位兼容 | 🔲 计划升级 |
+| **es.exe (CLI)** | 简单易用、跨架构 | 进程开销略高 | 🔲 备选方案 |
+
+> **实现变更说明**：原 PRD v3.0 以 SDK 为主要方案、HTTP API 为"暂不支持"。实际开发中发现 HTTP API 方案更稳定且无权限问题，当前作为主要方案使用。SDK 方案留待后续性能优化时评估。
 
 #### 4.3.2 调用逻辑
 
@@ -169,51 +198,123 @@ wTools 通过以下方式调用本地 Everything 服务：
      │
      ▼
 ┌─────────────────┐
-│ 检查 Everything  │─── 未运行 ───► 提示用户安装/启动 Everything
-│   是否运行       │
+│ 调用 Everything  │─── 失败 ───► 显示错误横幅（不阻塞应用结果）
+│ HTTP API        │
 └─────────────────┘
      │
-     ▼ 正在运行
+     ▼ 成功
 ┌─────────────────┐
-│ 调用 Everything  │─── SDK: Everything_Search() / CLI: es.exe <query>
-│   搜索接口       │
-└─────────────────┘
-     │
-     ▼
-┌─────────────────┐
-│ 获取搜索结果     │─── 文件名、路径、类型、修改时间
+│ 获取搜索结果     │─── 文件名、路径、大小、类型、修改时间
 │ (限制数量)       │
 └─────────────────┘
      │
      ▼
 ┌─────────────────┐
-│ 合并应用结果     │─── 按权重排序
+│ 合并应用结果     │─── 应用优先，追加文件结果
 │ 渲染展示         │
 └─────────────────┘
 ```
 
-#### 4.3.3 Everything 搜索参数
+#### 4.3.3 Everything HTTP API 参数
 
-| 参数 | 说明 | 示例 |
-|------|------|------|
-| `-n <num>` | 限制结果数量 | `es.exe -n 10 报告` |
-| `-s` | 按大小排序 | `es.exe -s 视频` |
-| `-dm` | 按修改日期排序 | `es.exe -dm 最近` |
-| `path:` | 限制路径 | `es.exe path:C:\Work 文档` |
-| `ext:` | 限制扩展名 | `es.exe ext:pdf 合同` |
+```
+GET http://localhost:18080/?search=<query>&j=1&path_column=1&size_column=1&date_modified_column=1&count=<limit>
+```
+
+- `j=1`：返回 JSON 格式
+- `path_column=1`：包含完整路径
+- `size_column=1`：包含文件大小
+- `date_modified_column=1`：包含修改日期
+- `count`：限制结果数（最大 100，默认 6）
+- 超时时间：5 秒
 
 #### 4.3.4 搜索结果过滤
 
-- **默认过滤**：排除系统目录（Windows、Program Files 等）
-- **文件类型过滤**：可配置只搜索指定类型
-- **路径过滤**：可配置排除特定目录
-- **大小过滤**：排除超大文件（> 1GB）
+- **🔲 默认过滤**：排除系统目录（Windows、Program Files 等）
+- **🔲 文件类型过滤**：可配置只搜索指定类型
+- **🔲 路径过滤**：可配置排除特定目录
+- **🔲 大小过滤**：排除超大文件（> 1GB）
 
 ### 4.4 搜索历史
 
-- **历史记录**：保存最近 50 条搜索记录
-- **快速访问**：输入框为空时显示最近使用
-- **清空历史**：设置中提供清空选项
+- **🔲 历史记录**：保存最近 50 条搜索记录
+- **🔲 快速访问**：输入框为空时显示最近搜索
+- **🔲 清空历史**：设置中提供清空选项
+
+> 当前仅实现了应用使用频次追踪（`app_usage_v2.json`），用于空查询时的排序推荐。
+
+### 4.5 剪贴板历史 ✅ (PRD v3.1 新增)
+
+#### 4.5.1 功能概述
+自动监控系统剪贴板变化，记录文本和图片内容，支持历史回溯和再次复制。
+
+#### 4.5.2 监控机制
+- **轮询频率**：每 500ms 检查一次剪贴板
+- **优先级**：图片 > 文件列表 > 文本
+- **去重策略**：与最近一条记录对比，相同则跳过
+- **连续错误处理**：10 次连续错误后暂停 5 秒，自动恢复
+- **启动/停止**：通过 AtomicBool 控制后台线程
+
+#### 4.5.3 数据类型
+| 类型 | 格式 | 限制 |
+|------|------|------|
+| 文本 (CF_UNICODETEXT) | 内联存储 | 预览截断 200 字符，内容最大 10MB |
+| 图片 (CF_DIB) | PNG 文件存储 | 支持 24/32-bit DIB，最大 20MB |
+| 文件列表 (CF_HDROP) | 路径列表 | 最多 100 个文件，路径最长 260 字符 |
+
+#### 4.5.4 存储
+- 历史记录：`%LOCALAPPDATA%/wtools/clipboard_history.json`（最多 100 条）
+- 图片文件：`%LOCALAPPDATA%/wtools/clipboard_images/`（PNG 格式）
+- 支持固定 (Pin)、删除（含图片文件清理）、清空
+
+#### 4.5.5 交互
+- `Tab` 键在搜索模式和剪贴板模式之间切换
+- 剪贴板面板支持搜索过滤
+- 键盘导航（↑↓ 选择，Enter 复制）
+- 点击复制后显示 Toast 确认
+- 固定项优先排序，有专属背景样式
+- 悬停显示固定/删除按钮
+- 时间戳以相对时间显示（中文格式）
+
+### 4.6 文件预览 ✅ (PRD v3.1 新增)
+
+#### 4.6.1 功能概述
+选中文件/文件夹结果时，在右侧面板展示预览内容。
+
+#### 4.6.2 预览方案
+
+| 方案 | 说明 | 适用场景 |
+|------|------|---------|
+| Rust 文本提取 | lopdf / quick-xml / zip 解析 | PDF, DOCX, XLSX, PPTX |
+| Windows Preview Handler | 通过 COM 接口调用系统注册的预览器 | 任意已注册文件类型 |
+| 图片渲染 | 直接读取文件转 base64 | PNG, JPG, GIF, BMP 等 |
+| 文本读取 | 读取前 80 行 | 代码文件、纯文本 |
+
+#### 4.6.3 支持的文件类型
+| 类型 | 预览方式 | 内容 |
+|------|---------|------|
+| 文件夹 | 元数据 | 图标 + 名称 + 路径 |
+| 图片 (png/jpg/gif/bmp/webp/svg/ico) | base64 渲染 | 缩略图 + 元数据栏（类型、大小、修改日期） |
+| PDF | Rust lopdf | 文本提取（最多 10 页），自定义流解码 |
+| DOCX | Rust zip + quick-xml | 提取 word/document.xml 中的 `<w:t>` 文本 |
+| XLSX | Rust zip + quick-xml | 解析共享字符串 + 工作表（最多 50 行） |
+| PPTX | Rust zip + quick-xml | 提取 ppt/slides/slide*.xml 中的 `<a:t>` 文本 |
+| 文本/代码 | 直接读取 | 行号 + 代码高亮标签 + 等宽字体（80+ 语言映射） |
+| 二进制/未知 | 元数据 | 文件图标 + 类型/大小/修改日期 + "无法预览" 提示 |
+
+#### 4.6.4 Windows Preview Handler（高级预览）
+- 通过注册表查找文件扩展名对应的 Preview Handler CLSID
+- 搜索路径：`HKCR\.<ext>\shellex\{8895b1c6-b41f-4c1c-a562-0d564250836f}`
+- 创建 COM 实例 (CoCreateInstance) → IInitializeWithFile → DoPreview
+- 离屏渲染到隐藏窗口 → BitBlt/PrintWindow 捕获 → PNG base64
+- 支持 IObjectWithSite 模式（部分预览器需要站点对象提供 HWND）
+
+#### 4.6.5 前端展示
+- 右侧面板，宽度 45%，CSS transition 滑入动画
+- 加载状态：旋转器 (spinner)
+- 代码预览：行号列 + 等宽字体 + 深色背景
+- 图片预览：响应式缩放 + 底部元数据栏
+- 预览内容随选中结果变化自动更新（watch props.path）
 
 ---
 
@@ -222,53 +323,53 @@ wTools 通过以下方式调用本地 Everything 服务：
 ### 5.1 视觉风格
 
 #### 5.1.1 设计语言：Glassmorphism
-- **背景**：半透明毛玻璃效果（`backdrop-filter: blur(20px)`）
-- **边框**：1px 半透明白色边框
+- **背景**：半透明毛玻璃效果（`backdrop-filter: blur(40px) saturate(180%)`）
+- **边框**：1px 半透明边框
 - **阴影**：多层柔和投影营造层次感
-- **圆角**：大圆角设计（16-24px）
+- **圆角**：大圆角设计（8-24px）
 
 #### 5.1.2 色彩系统
 
-**主色调（TDesign 品牌蓝）**
+**主色调（Teal 青色）** — *v0.3.2 起由 TDesign 蓝改为 Teal*
 ```css
---primary-50: #EEF2FC;
---primary-100: #D9E5FC;
---primary-200: #B6CBF9;
---primary-300: #8AABF5;
---primary-400: #5C8AF0;
---primary-500: #0052D9;  /* 品牌主色 */
---primary-600: #003CAB;
---primary-700: #002A7D;
---primary-800: #001B4F;
---primary-900: #000F29;
+--accent-50: #F0FDFA;
+--accent-100: #CCFBF1;
+--accent-200: #99F6E4;
+--accent-300: #5EEAD4;
+--accent-400: #2DD4BF;
+--accent-500: #14B8A6;  /* 品牌主色 */
+--accent-600: #0D9488;
+--accent-700: #0F766E;
+--accent-800: #115E59;
+--accent-900: #134E4A;
 ```
 
 **中性色**
 ```css
---gray-50: #F5F5F5;
---gray-100: #E8E8E8;
---gray-200: #D4D4D4;
---gray-300: #B9B9B9;
---gray-400: #9E9E9E;
---gray-500: #828282;
---gray-600: #666666;
---gray-700: #4D4D4D;
---gray-800: #333333;
---gray-900: #1A1A1A;
+--gray-50: #FAFAFA;
+--gray-100: #F5F5F5;
+--gray-200: #E5E5E5;
+--gray-300: #D4D4D4;
+--gray-400: #A3A3A3;
+--gray-500: #737373;
+--gray-600: #525252;
+--gray-700: #404040;
+--gray-800: #262626;
+--gray-900: #171717;
 ```
 
 **玻璃效果**
 ```css
 --glass-bg: rgba(255, 255, 255, 0.72);
---glass-border: rgba(255, 255, 255, 0.5);
---glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
---glass-blur: 20px;
+--glass-border: rgba(255, 255, 255, 0.3);
+--glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+--glass-blur: 40px;
 ```
 
 #### 5.1.3 字体系统
-- **英文字体**：Outfit (Google Font)
-- **中文字体**：PingFang SC, Microsoft YaHei
-- **等宽字体**：JetBrains Mono
+- **主字体**：HarmonyOS Sans SC, PingFang SC, Microsoft YaHei — *v0.3.2 起由 Outfit 改为 HarmonyOS Sans SC*
+- **等宽字体**：SF Mono, Consolas, monospace
+- **代码预览**：Consolas, SF Mono, monospace
 
 | 级别 | 大小 | 字重 | 行高 |
 |------|------|------|------|
@@ -281,51 +382,44 @@ wTools 通过以下方式调用本地 Everything 服务：
 
 ### 5.2 界面布局
 
-#### 5.2.1 主窗口结构
+#### 5.2.1 主窗口结构（搜索模式）
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  🔍  搜索应用或文件...                           ✕     │   │  ← 搜索栏 (56px)
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  📱 应用程序 (5)                                         │   │  ← 分类标题
-│  │  ┌──────────────────────────────────────────────────┐  │   │
-│  │  │ 1  🌐  Google Chrome          chrome.exe         │  │   │  ← 结果项
-│  │  │ 2  📝  Visual Studio Code     code.exe           │  │   │
-│  │  │ 3  🎨  Figma                  Figma.exe          │  │   │
-│  │  │ 4  ⚙️   设置                   System Settings   │  │   │
-│  │  │ 5  🗂️   文件资源管理器          explorer.exe      │  │   │
-│  │  └──────────────────────────────────────────────────┘  │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  📄 文件 (4)                                             │   │
-│  │  ┌──────────────────────────────────────────────────┐  │   │
-│  │  │ 6  📊  2024年度总结报告.pptx    ~/Documents/      │  │   │
-│  │  │ 7  📄  项目需求文档.docx        ~/Work/Projects/  │  │   │
-│  │  │ 8  📝  会议纪要.md              ~/Notes/          │  │   │
-│  │  │ 9  📁  下载                     ~/Downloads/      │  │   │
-│  │  └──────────────────────────────────────────────────┘  │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ─────────────────────────────────────────────────────────      │
-│  ⚙️ 设置    ↑↓选择    Enter打开    Alt+数字快速打开    Esc关闭    │  ← 状态栏 (36px)
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  🔍  搜索应用或文件...                                   ✕    │  │  ← 搜索栏 (56px)
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  ┌───────────────────────────────┬────────────────────────────────┐  │
+│  │  📱 应用程序                   │                                │  │
+│  │  ┌─────────────────────────┐  │  ┌──────────────────────────┐  │  │
+│  │  │  🌐  Google Chrome      │  │  │                          │  │  │
+│  │  │  📝  Visual Studio Code │  │  │     文件预览面板          │  │  │
+│  │  │  🎨  Figma              │  │  │     (45% 宽度)            │  │  │
+│  │  └─────────────────────────┘  │  │                          │  │  │
+│  │  📄 文件                      │  │  - 图片/文本/代码/元数据  │  │  │
+│  │  ┌─────────────────────────┐  │  │                          │  │  │
+│  │  │  📊  报告.pptx           │  │  │                          │  │  │
+│  │  │  📄  需求文档.docx       │  │  │                          │  │  │
+│  │  │  📝  会议纪要.md         │  │  │                          │  │  │
+│  │  └─────────────────────────┘  │  └──────────────────────────┘  │  │
+│  └───────────────────────────────┴────────────────────────────────┘  │
+│                                                                       │
+│  ──────────────────────────────────────────────────────────────────   │
+│  Tab 剪贴板    ↑↓选择    Enter打开    Esc关闭    自定义应用 +         │  ← 底部栏
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 #### 5.2.2 窗口尺寸
-- **宽度**：680px（固定）
-- **最小高度**：120px（仅搜索栏）
-- **最大高度**：520px（展开结果，约 15 条结果）
-- **位置**：屏幕中央偏上（距顶部 20%）
+- **宽度**：720px（固定）
+- **高度**：520px（固定）
+- **位置**：屏幕中央
+- > 注：原 PRD 计划 680px 宽度 + 可变高度 (120-520px)，当前实现为固定 720x520
 
 #### 5.2.3 搜索栏规格
 - **高度**：56px
-- **圆角**：28px（全圆角）
+- **圆角**：全圆角
 - **内边距**：0 24px
-- **阴影**：`0 4px 20px rgba(0, 82, 217, 0.15)`
-- **聚焦状态**：边框颜色变为 `--primary-500`，添加发光效果
+- **聚焦状态**：边框颜色变为 `--accent-500`，添加发光效果
 - **图标**：左侧搜索图标 20px，右侧清除按钮（有输入时显示）
 
 #### 5.2.4 结果项规格
@@ -333,11 +427,17 @@ wTools 通过以下方式调用本地 Everything 服务：
 - **内边距**：12px 16px
 - **圆角**：12px
 - **布局**：Flex 布局
-  - 序号/图标区域：32px
-  - 名称区域：flex: 1
-  - 路径/描述区域：固定宽度或省略
-- **悬停效果**：背景色微变，添加选中指示器
-- **选中状态**：左侧添加 3px 主色指示条，背景高亮
+  - 类型指示点：4px 彩色圆点
+  - 图标区域：32px（应用图标/缩略图/emoji 回退）
+  - 名称区域：flex: 1，匹配词高亮
+  - 类型标签/路径：辅助信息
+- **悬停效果**：背景色微变
+- **选中状态**：左侧 3px 主色指示条，背景高亮
+
+#### 5.2.5 底部栏
+- **高度**：36px
+- **内容**：Tab 切换提示、键盘操作提示、自定义应用添加按钮
+- > 注：原 PRD 中的 StatusBar 组件已在 v0.3.x 重构中移除，功能分散到主界面各元素中
 
 ### 5.3 动画设计
 
@@ -350,9 +450,10 @@ wTools 通过以下方式调用本地 Everything 服务：
 #### 5.3.2 内容动画
 | 元素 | 动画 | 时长 | 缓动函数 |
 |------|------|------|---------|
-| 搜索栏聚焦 | 边框发光 + 轻微放大 | 200ms | ease-out |
-| 结果项出现 | 交错淡入 | 80ms | ease-out |
+| 搜索栏聚焦 | 边框发光 | 200ms | ease-out |
+| 结果项出现 | 交错淡入（最多 10 项，间隔 25ms） | 80ms | ease-out |
 | 结果项选中 | 背景色过渡 | 100ms | ease |
+| 预览面板 | 滑入 + 淡入 | 200ms | CSS transition |
 | 滚动 | 平滑滚动 | 150ms | ease-out |
 
 ### 5.4 暗黑模式
@@ -360,10 +461,10 @@ wTools 通过以下方式调用本地 Everything 服务：
 #### 5.4.1 暗黑配色
 ```css
 [data-theme="dark"] {
-  --bg-primary: rgba(28, 28, 30, 0.85);
+  --bg-primary: rgba(18, 18, 18, 0.85);
   --glass-bg: rgba(30, 30, 32, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   --text-primary: #FFFFFF;
   --text-secondary: #98989F;
   --text-tertiary: #636366;
@@ -371,8 +472,8 @@ wTools 通过以下方式调用本地 Everything 服务：
 ```
 
 #### 5.4.2 自动切换
-- 跟随系统主题自动切换
-- 支持手动强制指定
+- 跟随系统主题自动切换 ✅
+- 支持手动强制指定（当前仅内存生效，🔲 待持久化）
 - 过渡动画：200ms 平滑切换
 
 ---
@@ -381,26 +482,29 @@ wTools 通过以下方式调用本地 Everything 服务：
 
 ### 6.1 全局快捷键
 
-| 快捷键 | 功能 | 可自定义 |
-|--------|------|---------|
-| `Alt+Space` | 唤起/隐藏主窗口 | 是 |
-| `Esc` | 关闭窗口 | 否 |
-| `↑ / ↓` | 选择上/下一条结果 | 否 |
-| `Enter` | 打开选中的项 | 否 |
-| `Alt+数字` | 快速打开对应编号项 | 否 |
-| `Ctrl/Cmd+Enter` | 在资源管理器中显示 | 否 |
-| `Ctrl/Cmd+,` | 打开设置 | 是 |
+| 快捷键 | 功能 | 可自定义 | 状态 |
+|--------|------|---------|------|
+| `Alt+Space` | 唤起/隐藏主窗口 | 否（后备 `Alt+`` `） | ✅ |
+| `Esc` | 关闭窗口 | 否 | ✅ |
+| `↑ / ↓` | 选择上/下一条结果 | 否 | ✅ |
+| `Enter` | 打开选中的结果项 | 否 | ✅ |
+| `Tab` | 切换搜索模式 / 剪贴板模式 | 否 | ✅ |
+| `Alt+数字` | 快速打开对应编号项 | 否 | 🔲 |
+| `Ctrl+Enter` | 在资源管理器中显示 | 否 | 🔲 |
+| `Ctrl+,` | 打开设置 | 是 | 🔲 |
 
 ### 6.2 鼠标交互
 
-| 操作 | 响应 |
-|------|------|
-| 单击结果项 | 打开该项 |
-| 右键结果项 | 显示上下文菜单（打开/打开所在位置/复制路径） |
-| 单击搜索框外 | 关闭窗口（可配置） |
-| 滚轮 | 滚动结果列表 |
+| 操作 | 响应 | 状态 |
+|------|------|------|
+| 单击结果项 | 打开该项 | ✅ |
+| 右键结果项 | 显示上下文菜单 | 🔲 |
+| 单击托盘图标 | 双击切换窗口显示 | ✅ |
+| 滚轮 | 滚动结果列表 | ✅ |
+| 单击预览面板 | 无操作 | ✅ |
+| 悬停剪贴板项 | 显示固定/删除按钮 | ✅ |
 
-### 6.3 上下文菜单
+### 6.3 上下文菜单 🔲 (计划中)
 
 右键结果项显示：
 - **打开**：启动应用或打开文件
@@ -414,93 +518,88 @@ wTools 通过以下方式调用本地 Everything 服务：
 
 ### 7.1 技术栈
 
-| 层级 | 技术选型 | 说明 |
-|------|---------|------|
-| 桌面框架 | Tauri v2 | Rust 构建，轻量安全 |
-| 前端框架 | Vue 3 + TypeScript | 组合式 API |
-| UI 组件库 | TDesign Vue Next | 腾讯开源设计体系 |
-| 状态管理 | Pinia | Vue 官方推荐 |
-| 构建工具 | Vite | 极速构建 |
-| 应用搜索 | Fuse.js | 应用名称模糊搜索 |
-| 文件搜索 | Everything SDK | 调用 Everything DLL |
-| 数据存储 | Tauri Store / SQLite | 本地配置和历史 |
+| 层级 | 技术选型 | 说明 | 状态 |
+|------|---------|------|------|
+| 桌面框架 | Tauri v2 | Rust 构建，轻量安全 | ✅ |
+| 前端框架 | Vue 3 + TypeScript | 组合式 API | ✅ |
+| 状态管理 | Pinia | Vue 官方推荐 | ✅ |
+| 构建工具 | Vite | 极速构建 | ✅ |
+| 应用搜索 | Fuse.js | 应用名称模糊搜索 | ✅ |
+| 拼音别名 | 硬编码映射 | 40+ 中文应用，多种别名 | ✅ |
+| 文件搜索 | Everything HTTP API | reqwest + JSON | ✅ |
+| 剪贴板监控 | Win32 API | OpenClipboard / GetClipboardData | ✅ |
+| 文件预览 | Rust 解析 + Windows COM | lopdf + quick-xml + Preview Handler | ✅ |
+| 数据存储 | JSON 文件 | 轻量级，无数据库依赖 | ✅ |
+| 图标提取 | Win32 SHGetFileInfoW + image crate | HICON → PNG → base64 | ✅ |
+
+> **相比 PRD v3.0 的变更**：
+> - 移除 TDesign Vue Next — 使用自建组件系统，更轻量且完全掌控样式
+> - 移除 Tauri Store / SQLite — 改用 JSON 文件存储，降低复杂度
+> - Everything 方案由 SDK 改为 HTTP API
+> - 移除 `pinyin-pro` 依赖（当前用别名映射），留待后续升级
 
 ### 7.2 项目结构
 
 ```
 wtools/
-├── src/
+├── src/                              # Vue 前端
 │   ├── assets/
-│   │   ├── icons/
-│   │   ├── fonts/
 │   │   └── styles/
-│   │       ├── global.css
-│   │       ├── variables.css
-│   │       └── animations.css
+│   │       └── global.css            # 全局设计系统 (CSS 变量)
 │   │
 │   ├── components/
 │   │   ├── SearchBar/
-│   │   │   └── index.vue
+│   │   │   └── index.vue             # 搜索输入框
 │   │   ├── ResultList/
-│   │   │   └── index.vue
+│   │   │   └── index.vue             # 搜索结果列表（应用+文件分组）
 │   │   ├── ResultItem/
-│   │   │   └── index.vue
-│   │   └── StatusBar/
-│   │       └── index.vue
+│   │   │   └── index.vue             # 单条结果项
+│   │   ├── ClipboardList/
+│   │   │   └── index.vue             # 剪贴板历史面板
+│   │   └── FilePreview/
+│   │       └── index.vue             # 文件预览面板
 │   │
 │   ├── views/
-│   │   ├── MainWindow/
-│   │   │   └── index.vue
-│   │   └── Settings/
-│   │       └── index.vue
+│   │   └── MainWindow/
+│   │       └── index.vue             # 主窗口（搜索/剪贴板双模式）
 │   │
 │   ├── stores/
-│   │   ├── settings.ts
-│   │   ├── search.ts
-│   │   └── history.ts
-│   │
-│   ├── composables/
-│   │   ├── useSearch.ts
-│   │   ├── useWindow.ts
-│   │   ├── useShortcuts.ts
-│   │   └── useAppIndex.ts
-│   │
-│   ├── utils/
-│   │   ├── index.ts
-│   │   ├── fuzzySearch.ts
-│   │   └── formatters.ts
-│   │
-│   ├── types/
-│   │   └── index.ts
+│   │   ├── search.ts                 # 搜索状态管理 (Pinia)
+│   │   └── settings.ts               # 设置状态管理 (Pinia)
 │   │
 │   ├── App.vue
 │   └── main.ts
 │
-├── src-tauri/
+├── src-tauri/                        # Rust 后端
 │   ├── src/
-│   │   ├── main.rs
-│   │   ├── lib.rs
+│   │   ├── main.rs                   # 入口
+│   │   ├── lib.rs                    # 核心设置：窗口、托盘、热键、插件
 │   │   ├── commands/
-│   │   │   ├── app.rs              # 应用搜索
-│   │   │   ├── everything.rs       # Everything 接口
-│   │   │   ├── window.rs           # 窗口控制
-│   │   │   └── config.rs           # 配置管理
+│   │   │   ├── mod.rs
+│   │   │   ├── app.rs                # 应用索引/启动/图标/使用统计/自定义应用
+│   │   │   ├── clipboard.rs          # 剪贴板历史/复制（文本+图片）
+│   │   │   ├── file.rs               # 文件搜索/预览/缩略图
+│   │   │   └── window.rs             # 窗口显隐控制
+│   │   ├── clipboard/
+│   │   │   ├── mod.rs
+│   │   │   ├── history.rs            # 剪贴板历史存储管理
+│   │   │   └── monitor.rs            # 后台剪贴板监控线程
 │   │   ├── everything/
-│   │   │   ├── mod.rs              # Everything 模块
-│   │   │   ├── sdk.rs              # SDK FFI 绑定
-│   │   │   └── cli.rs              # CLI 封装
-│   │   ├── indexer/
-│   │   │   └── app_indexer.rs      # 应用索引
-│   │   └── utils/
-│   │       └── mod.rs
-│   ├── Everything.dll              # Everything SDK (x64)
-│   ├── Everything32.dll            # Everything SDK (x86)
+│   │   │   ├── mod.rs
+│   │   │   ├── http.rs               # Everything HTTP API 客户端
+│   │   │   ├── search.rs             # 搜索门面
+│   │   │   └── log.rs                # 调试日志
+│   │   └── preview_handler/
+│   │       ├── mod.rs
+│   │       ├── host.rs               # Windows Preview Handler 宿主
+│   │       └── com_interfaces.rs     # COM 接口定义
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
 ├── docs/
+│   └── PRD.md                         # 本文档
 ├── design/
-├── public/
+│   └── UI-Kit.md                      # UI 设计规范
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -509,120 +608,66 @@ wtools/
 
 ### 7.3 核心 API 设计
 
-#### 7.3.1 窗口控制 API
-```typescript
-// 唤起窗口
-invoke('show_window')
+#### 7.3.1 已实现的 IPC 命令
 
-// 隐藏窗口
+```typescript
+// 窗口控制
+invoke('show_window')
 invoke('hide_window')
 
-// 设置窗口大小
-invoke('set_window_size', { height: number })
+// 应用搜索
+invoke('get_installed_apps')           // 扫描已安装应用
+invoke('get_app_aliases')              // 获取拼音别名
+invoke('get_app_icon_base64', { path }) // 获取应用图标 base64
+invoke('launch_app', { path })         // 启动应用
+invoke('get_app_usage')               // 获取使用统计
+
+// 自定义应用
+invoke('get_custom_apps')
+invoke('add_custom_app', { path })
+invoke('remove_custom_app', { path })
+
+// 文件搜索与预览
+invoke('search_files', { query, limit })  // 调用 Everything HTTP API
+invoke('open_file', { path })             // 打开文件
+invoke('show_in_folder', { path })        // 在资源管理器定位
+invoke('get_file_preview', { path })      // 文本内容预览
+invoke('get_image_thumbnail', { path })   // 图片缩略图
+
+// 剪贴板
+invoke('get_clipboard_history')            // 获取历史列表
+invoke('delete_clipboard_item', { id })    // 删除单条
+invoke('clear_clipboard_history')          // 清空历史
+invoke('toggle_pin_clipboard_item', { id })// 切换固定
+invoke('copy_to_clipboard', { text })      // 复制文本到剪贴板
+invoke('copy_image_to_clipboard', { base64 }) // 复制图片到剪贴板
 ```
 
-#### 7.3.2 搜索 API
-```typescript
-// 获取已安装应用列表
-invoke('get_installed_apps')
+#### 7.3.2 计划中的 IPC 命令 🔲
 
-// 搜索文件（调用 Everything）
-invoke('search_files_everything', { 
-  query: string, 
+```typescript
+// Everything 状态
+invoke('is_everything_running')
+invoke('is_everything_installed')
+invoke('get_everything_version')
+
+// 高级搜索
+invoke('search_files', {
+  query: string,
   limit: number,
   filters?: {
-    paths?: string[],      // 限制路径
-    excludePaths?: string[], // 排除路径
-    extensions?: string[]    // 文件扩展名
+    paths?: string[],
+    excludePaths?: string[],
+    extensions?: string[]
   }
 })
 
-// 启动应用
-invoke('launch_app', { path: string })
-
-// 打开文件
-invoke('open_file', { path: string })
-
-// 在资源管理器中显示
-invoke('show_in_folder', { path: string })
-
-// 复制路径到剪贴板
-invoke('copy_to_clipboard', { text: string })
-```
-
-#### 7.3.3 Everything 状态 API
-```typescript
-// 检查 Everything 是否运行
-invoke('is_everything_running')
-
-// 检查 Everything 是否安装
-invoke('is_everything_installed')
-
-// 获取 Everything 版本
-invoke('get_everything_version')
-
-// 重建应用索引（Everything 不需要重建文件索引）
+// 应用索引管理
 invoke('rebuild_app_index')
 
-// 监听 Everything 状态变化
-listen('everything_status_changed', (event) => { ... })
-```
-
-#### 7.3.4 Rust Everything SDK FFI 示例
-```rust
-// src-tauri/src/everything/sdk.rs
-use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_int, c_uint};
-use std::ptr;
-
-#[link(name = "Everything")]
-extern "system" {
-    fn Everything_SetSearchW(lpString: *const c_char);
-    fn Everything_SetMax(max_results: c_uint);
-    fn Everything_Query(bWait: c_int) -> c_int;
-    fn Everything_GetNumResults() -> c_uint;
-    fn Everything_GetResultFullPathNameW(nIndex: c_uint, buf: *mut c_char, bufsize: c_uint) -> c_uint;
-    fn Everything_IsDBLoaded() -> c_int;
-    fn Everything_GetLastError() -> c_uint;
-}
-
-pub fn search(query: &str, max_results: u32) -> Result<Vec<String>, String> {
-    unsafe {
-        // 设置搜索关键词 (Unicode)
-        let c_query = CString::new(query).map_err(|e| e.to_string())?;
-        Everything_SetSearchW(c_query.as_ptr());
-
-        // 设置最大结果数
-        Everything_SetMax(max_results);
-
-        // 执行搜索
-        if Everything_Query(1) == 0 {
-            return Err(format!("Everything search failed: {}", Everything_GetLastError()));
-        }
-
-        // 获取结果数量
-        let count = Everything_GetNumResults();
-        let mut results = Vec::with_capacity(count as usize);
-
-        // MAX_PATH = 260，使用动态buffer
-        let buffer_size = 260usize;
-        let mut buffer: Vec<u16> = vec![0u16; buffer_size];
-
-        for i in 0..count {
-            let len = Everything_GetResultFullPathNameW(
-                i,
-                buffer.as_mut_ptr() as *mut c_char,
-                buffer_size as c_uint,
-            );
-            if len > 0 {
-                let path = String::from_utf16_lossy(&buffer[..len as usize]);
-                results.push(path);
-            }
-        }
-
-        Ok(results)
-    }
-}
+// 设置管理
+invoke('get_settings')
+invoke('set_setting', { key, value })
 ```
 
 ---
@@ -644,8 +689,8 @@ pub fn search(query: &str, max_results: u32) -> Result<Vec<String>, String> {
 
 | 项目 | 说明 |
 |------|------|
-| **Everything 要求** | 用户需自行安装 Everything（首次启动时检测并提示） |
-| **服务依赖** | Everything 必须正在运行（支持 Everything Service 或普通模式） |
+| **Everything 要求** | 用户需自行安装 Everything 并启用 HTTP 服务器（端口 18080） |
+| **服务依赖** | Everything 必须正在运行 |
 | **首次索引** | Everything 会自动建立文件索引，wTools 无需等待 |
 | **实时性** | 文件搜索结果实时反映磁盘变化（由 Everything 保证） |
 
@@ -653,23 +698,25 @@ pub fn search(query: &str, max_results: u32) -> Result<Vec<String>, String> {
 
 ## 9. 设置选项
 
-### 9.1 通用设置
-- **开机启动**：是否随系统启动
-- **失焦关闭**：点击窗口外是否自动关闭
-- **主题**：跟随系统 / 浅色 / 深色
+> **整体状态**：🔲 设置页面尚未实现。当前配置途径：系统托盘菜单（开机自启）、内存中的主题切换。所有设置通过 JSON 文件持久化，但缺少 UI 管理界面。
 
-### 9.2 快捷键设置
-- **唤起热键**：自定义唤起快捷键（默认 Alt+Space）
+### 9.1 通用设置 🔲
+- **开机启动**：是否随系统启动 ✅（仅托盘菜单）
+- **失焦关闭**：点击窗口外是否自动关闭 🔲
+- **主题**：跟随系统 / 浅色 / 深色 ⚠️（UI 可用但不持久化）
+
+### 9.2 快捷键设置 🔲
+- **唤起热键**：自定义唤起快捷键
 - **检测冲突**：自动检测并提示快捷键冲突
 
-### 9.3 应用搜索设置
+### 9.3 应用搜索设置 🔲
 - **重新索引应用**：手动重建应用索引
 - **索引状态**：显示当前应用索引条目数
 
-### 9.4 Everything 设置
-- **Everything 路径**：手动指定 es.exe 路径（可选）
-- **搜索结果限制**：设置最大文件结果数（5-20）
-- **文件类型过滤**：只搜索指定扩展名（可选）
+### 9.4 Everything 设置 🔲
+- **Everything HTTP 端口**：配置 HTTP 服务器端口
+- **搜索结果限制**：设置最大文件结果数（当前默认 6）
+- **文件类型过滤**：只搜索指定扩展名
 - **路径过滤**：排除特定目录
 
 ---
@@ -678,31 +725,42 @@ pub fn search(query: &str, max_results: u32) -> Result<Vec<String>, String> {
 
 ### 10.1 里程碑
 
-| 阶段 | 目标 | 时间 |
+| 阶段 | 目标 | 状态 |
 |------|------|------|
-| M1 | 基础框架搭建，窗口管理，热键注册 | Week 1 |
-| M2 | 应用索引，应用搜索，启动功能 | Week 2 |
-| M3 | Everything 集成（SDK/CLI），文件搜索 | Week 3 |
-| M4 | 搜索历史，智能排序，结果合并 | Week 4 |
-| M5 | 设置界面，主题系统，暗黑模式 | Week 5 |
-| M6 | 测试修复，打包发布 | Week 6 |
+| M1 | 基础框架搭建，窗口管理，热键注册 | ✅ 完成 |
+| M2 | 应用索引，应用搜索，启动功能 | ✅ 完成 |
+| M3 | Everything 集成 (HTTP API)，文件搜索 | ✅ 完成 |
+| M4 | 剪贴板历史，文件预览，自定义应用 | ✅ 完成 |
+| M5 | 搜索历史，设置界面，快捷键自定义 | 🔲 当前阶段 |
+| M6 | 右键上下文菜单，Alt+数字快速打开，交互细节完善 | 🔲 计划中 |
+| M7 | 测试修复，性能优化，打包发布 1.0 | 🔲 计划中 |
 
 ### 10.2 版本规划
 
-**v0.1.0 (Alpha)**
-- 基础窗口管理
-- 应用搜索功能
+**v0.3.x (当前)**
+- 基础窗口管理 ✅
+- 应用搜索（Fuse.js + 别名）✅
+- Everything HTTP API 文件搜索 ✅
+- 剪贴板历史监控与管理 ✅
+- 文件预览（Rust 解析 + Windows Preview Handler）✅
+- 自定义应用 CRUD ✅
+- Glassmorphism Teal 主题 ✅
+- 暗黑模式 ✅
 
-**v0.5.0 (Beta)**
-- Everything 文件搜索
+**v0.5.0 (计划)**
 - 搜索历史
-- 基础设置
+- 设置界面
+- 快捷键自定义
+- 右键上下文菜单
+- Alt+数字快速打开
+- 主题持久化
 
-**v1.0.0 (Release)**
-- 完整搜索功能
-- 主题系统
-- 性能优化
-- 全平台支持
+**v1.0.0 (计划)**
+- Everything SDK 集成（性能优化）
+- 高级搜索筛选
+- 拼音库升级（pinyin-pro）
+- 性能优化达标
+- 安装包优化
 
 ---
 
@@ -710,14 +768,15 @@ pub fn search(query: &str, max_results: u32) -> Result<Vec<String>, String> {
 
 ### 11.1 参考资源
 - [Everything](https://www.voidtools.com/) - 文件搜索引擎
+- [Everything HTTP API](https://www.voidtools.com/support/everything/http/) - HTTP 服务器文档
 - [Everything SDK](https://www.voidtools.com/support/everything/sdk/) - SDK 文档
 - [Spotlight - macOS](https://support.apple.com/guide/mac-help/search-with-spotlight-mchlp1008/mac)
-- [TDesign Vue Next](https://tdesign.tencent.com/vue-next/)
 - [Tauri](https://tauri.app/)
 - [Vue 3](https://vuejs.org/)
+- [Fuse.js](https://www.fusejs.io/)
 
 ### 11.2 设计原则
-1. **专注单一**：只做搜索这一件事，做到极致
+1. **专注单一**：搜索 + 剪贴板 + 预览，三个核心功能做到极致
 2. **极速体验**：每个操作都应该是毫秒级的
 3. **键盘优先**：所有操作都可以用键盘完成
 4. **简约美观**：去除一切不必要的元素
@@ -730,10 +789,20 @@ pub fn search(query: &str, max_results: u32) -> Result<Vec<String>, String> {
 | Everything | Voidtools 开发的极速文件搜索工具 |
 | SDK | Software Development Kit，软件开发工具包 |
 | FFI | Foreign Function Interface，外部函数接口 |
-| 权重 | 决定搜索结果排序的优先级 |
+| Preview Handler | Windows 文件预览器 COM 接口 |
+| COM | Component Object Model，Windows 组件对象模型 |
+| DIB | Device Independent Bitmap，Windows 位图格式 |
+| CLSID | Class Identifier，Windows COM 类标识符 |
+
+### 11.4 变更记录
+
+| 版本 | 日期 | 变更内容 |
+|------|------|---------|
+| v3.1 | 2026-05-08 | 同步实现现状：Everything 方案变更为 HTTP API、主色变更为 Teal、字体变更为 HarmonyOS Sans SC、新增剪贴板/文件预览章节、更新项目结构、标记功能实现状态 |
+| v3.0 | 2026-04-15 | 初始 PRD：Spotlight 定位、SDK 集成方案、TDesign 蓝色系统、Outfit 字体 |
 
 ---
 
-**文档版本**: v3.0  
-**最后更新**: 2026-04-15  
+**文档版本**: v3.1
+**最后更新**: 2026-05-08
 **作者**: wTools Team

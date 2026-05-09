@@ -1,99 +1,48 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useSearchStore } from '@/stores/search'
 
-const props = defineProps<{
-  modelValue: string
-}>()
-
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
+defineProps<{
+  placeholder?: string
 }>()
 
 const searchStore = useSearchStore()
 const inputRef = ref<HTMLInputElement | null>(null)
-const localValue = ref(props.modelValue)
+
+let inputHandler: (() => void) | null = null
 
 const focusInput = () => {
   inputRef.value?.focus()
 }
 
 const reset = () => {
-  localValue.value = ''
-  emit('update:modelValue', '')
-  // 延迟聚焦，确保在 Tauri 窗口焦点处理完成后再聚焦输入框
-  setTimeout(() => {
-    inputRef.value?.focus()
-  }, 100)
+  if (inputRef.value) {
+    inputRef.value.value = ''
+  }
+  searchStore.clear()
+  inputRef.value?.focus()
 }
 
 defineExpose({ focusInput, reset })
 
-watch(() => props.modelValue, (newVal) => {
-  if (newVal !== localValue.value) {
-    localValue.value = newVal
+onMounted(() => {
+  const el = inputRef.value
+  if (!el) return
+
+  // 原生 input 事件 — 搜索（方向键和回车由 MainWindow 在捕获阶段统一处理）
+  inputHandler = () => {
+    searchStore.search(el.value)
   }
+  el.addEventListener('input', inputHandler)
+
+  // 初始聚焦
+  el.focus()
 })
 
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-
-const handleInput = (e: Event) => {
-  const value = (e.target as HTMLInputElement).value
-  localValue.value = value
-  emit('update:modelValue', value)
-
-  if (searchTimer) {
-    clearTimeout(searchTimer)
-  }
-  searchTimer = setTimeout(() => {
-    searchStore.search(value)
-  }, 150)
-}
-
-const handleClear = () => {
-  localValue.value = ''
-  emit('update:modelValue', '')
-  searchStore.clear()
-  nextTick(() => {
-    inputRef.value?.focus()
-  })
-}
-
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    if (searchStore.results.length > 0) {
-      e.preventDefault()
-      if (e.key === 'ArrowDown') {
-        searchStore.selectNext()
-      } else {
-        searchStore.selectPrev()
-      }
-    }
-    return
-  }
-
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    if (searchStore.results.length > 0) {
-      const selected = searchStore.results[searchStore.selectedIndex]
-      if (selected) {
-        if (selected.type === 'app') {
-          invoke('launch_app', { path: selected.path })
-        } else {
-          invoke('open_file', { path: selected.path })
-        }
-        invoke('hide_window')
-      }
-    }
-    return
-  }
-}
-
-onMounted(() => {
-  setTimeout(() => {
-    inputRef.value?.focus()
-  }, 100)
+onUnmounted(() => {
+  const el = inputRef.value
+  if (!el) return
+  if (inputHandler) el.removeEventListener('input', inputHandler)
 })
 </script>
 
@@ -108,20 +57,12 @@ onMounted(() => {
 
     <input
       ref="inputRef"
-      v-model="localValue"
       type="text"
-      @input="handleInput"
-      @keydown="handleKeydown"
-      placeholder="搜索应用或文件..."
+      :placeholder="placeholder || '搜索应用或文件...'"
       autocomplete="off"
       spellcheck="false"
     />
 
-    <button v-if="localValue" class="clear-btn" @click="handleClear">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M18 6 6 18M6 6l12 12" />
-      </svg>
-    </button>
   </div>
 </template>
 
@@ -179,26 +120,6 @@ input::placeholder {
   color: var(--text-tertiary);
 }
 
-.clear-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.clear-btn:hover {
-  background: rgba(0, 0, 0, 0.15);
-  color: var(--text-primary);
-}
-
 .shortcut-badge {
   font-size: 11px;
   font-weight: 500;
@@ -228,15 +149,6 @@ input::placeholder {
 
 [data-theme="dark"] .search-icon {
   color: var(--accent-light);
-}
-
-[data-theme="dark"] .clear-btn {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
-}
-
-[data-theme="dark"] .clear-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
 }
 
 [data-theme="dark"] .shortcut-badge {

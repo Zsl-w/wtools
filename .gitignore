@@ -24,3 +24,9 @@ Desktop.ini
 
 # DLL (no longer needed)
 Everything64.dll
+
+# Flutter
+lib/build/
+lib/.dart_tool/
+lib/windows/flutter/ephemeral/
+lib/.flutter-plugins-dependencies

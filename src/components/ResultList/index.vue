@@ -49,6 +49,16 @@ const addCustomApp = async () => {
       <div class="no-results">未找到匹配结果</div>
     </div>
 
+    <!-- 文件搜索失败提示 -->
+    <div v-if="searchStore.error && appResults.length > 0" class="error-banner">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span>{{ searchStore.error }}</span>
+    </div>
+
     <!-- 应用结果 -->
     <div v-if="appResults.length > 0" class="result-section">
       <div class="section-title">{{ hasQuery ? '应用程序' : '常用应用' }}</div>
@@ -204,6 +214,24 @@ const addCustomApp = async () => {
 
 .no-results {
   opacity: 0.6;
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 4px 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="dark"] .error-banner {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .add-app-section {

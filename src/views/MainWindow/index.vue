@@ -1,20 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import SearchBar from '@/components/SearchBar/index.vue'
 import ResultList from '@/components/ResultList/index.vue'
 import ClipboardList from '@/components/ClipboardList/index.vue'
+import FilePreview from '@/components/FilePreview/index.vue'
 import { useSearchStore } from '@/stores/search'
 import { useSettingsStore } from '@/stores/settings'
 
 const searchStore = useSearchStore()
 const settingsStore = useSettingsStore()
 
-const query = ref('')
 const mode = ref<'search' | 'clipboard'>('search')
+const searchPlaceholder = computed(() => mode.value === 'search' ? '搜索应用或文件...' : '搜索剪贴板...')
 const clipboardListRef = ref<InstanceType<typeof ClipboardList> | null>(null)
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null)
+
+// 错误 Toast 状态
+const errorMessage = ref<string | null>(null)
+const showErrorToast = ref(false)
+
+const showErrorMessage = (message: string) => {
+  errorMessage.value = message
+  showErrorToast.value = true
+  setTimeout(() => {
+    showErrorToast.value = false
+  }, 3000)
+}
+
+const selectedResult = computed(() => {
+  return searchStore.results[searchStore.selectedIndex] || null
+})
+
+const showPreview = computed(() => {
+  const r = selectedResult.value
+  return mode.value === 'search' && r && r.type !== 'app'
+})
 
 const handleKeyDown = (e: KeyboardEvent) => {
   // Tab 键切换模式
@@ -26,6 +48,9 @@ const handleKeyDown = (e: KeyboardEvent) => {
     } else {
       mode.value = 'search'
     }
+    nextTick(() => {
+      searchBarRef.value?.focusInput()
+    })
     return
   }
 
@@ -82,17 +107,12 @@ const handleOpenSelected = async () => {
     await invoke('hide_window')
   } catch (e) {
     console.error('Failed to open:', e)
+    const msg = typeof e === 'string' ? e : '打开失败'
+    showErrorMessage(msg)
   }
 }
 
-const resetOnShow = () => {
-  query.value = ''
-  mode.value = 'search'
-  searchStore.selectedIndex = 0  // 只重置选中索引，不清空 results
-  searchBarRef.value?.reset()
-}
-
-let unlistenFn: (() => void) | null = null
+let unlistenShow: (() => void) | null = null
 
 onMounted(async () => {
   const theme = settingsStore.theme
@@ -104,18 +124,21 @@ onMounted(async () => {
 
   await searchStore.search('')
 
-  unlistenFn = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-    if (focused) {
-      resetOnShow()
-    }
+  // 监听 Rust 端窗口显示完成事件，重置并聚焦
+  unlistenShow = await getCurrentWindow().listen('window-shown', () => {
+    mode.value = 'search'
+    searchStore.selectedIndex = 0
+    searchBarRef.value?.reset()
+    searchBarRef.value?.focusInput()
+    // 清除错误状态
+    showErrorToast.value = false
+    searchStore.error = null
   })
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown, true)
-  if (unlistenFn) {
-    unlistenFn()
-  }
+  if (unlistenShow) unlistenShow()
 })
 </script>
 
@@ -124,7 +147,7 @@ onUnmounted(() => {
     <div class="window-content">
       <div class="search-wrapper">
         <div class="drag-region" data-tauri-drag-region></div>
-        <SearchBar ref="searchBarRef" v-model="query" />
+        <SearchBar ref="searchBarRef" :placeholder="searchPlaceholder" />
         <div class="mode-indicator">
           <span :class="{ active: mode === 'search' }">搜索</span>
           <span class="separator">|</span>
@@ -133,13 +156,39 @@ onUnmounted(() => {
       </div>
       <div class="result-area">
         <div class="mode-panel" :class="{ active: mode === 'search' }">
-          <ResultList />
+          <div class="search-content">
+            <div class="search-list" :class="{ 'with-preview': showPreview }">
+              <ResultList />
+            </div>
+            <Transition name="preview-slide">
+              <div v-if="showPreview && selectedResult" class="search-preview">
+                <div class="preview-divider"></div>
+                <FilePreview
+                  :path="selectedResult.path"
+                  :name="selectedResult.name"
+                  :type="selectedResult.type"
+                />
+              </div>
+            </Transition>
+          </div>
         </div>
         <div class="mode-panel" :class="{ active: mode === 'clipboard' }">
           <ClipboardList ref="clipboardListRef" />
         </div>
       </div>
     </div>
+
+    <!-- 错误 Toast -->
+    <Transition name="error-toast">
+      <div v-if="showErrorToast && errorMessage" class="error-toast">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>{{ errorMessage }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -239,6 +288,60 @@ onUnmounted(() => {
   background: var(--accent-subtle);
 }
 
+/* 搜索内容区域（列表 + 预览） */
+.search-content {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.search-list {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  transition: flex 200ms var(--ease-out);
+}
+
+.search-list.with-preview {
+  flex: 0 0 55%;
+}
+
+.search-preview {
+  flex: 0 0 45%;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.preview-divider {
+  width: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .preview-divider {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 预览面板滑入动画 */
+.preview-slide-enter-active {
+  transition: opacity 200ms var(--ease-out), flex-basis 200ms var(--ease-out);
+}
+
+.preview-slide-leave-active {
+  transition: opacity 150ms ease-in, flex-basis 150ms ease-in;
+}
+
+.preview-slide-enter-from {
+  opacity: 0;
+  flex-basis: 0%;
+}
+
+.preview-slide-leave-to {
+  opacity: 0;
+  flex-basis: 0%;
+}
+
 /* 模式面板切换 */
 .mode-panel {
   position: absolute;
@@ -255,5 +358,49 @@ onUnmounted(() => {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* 错误 Toast */
+.error-toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(239, 68, 68, 0.95);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 80%;
+}
+
+.error-toast span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error-toast-enter-active {
+  transition: all 0.3s ease;
+}
+
+.error-toast-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.error-toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+}
+
+.error-toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
 }
 </style>

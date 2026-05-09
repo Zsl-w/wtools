@@ -24,6 +24,7 @@ pub struct SearchResult {
     pub path: String,
     pub size: u64,
     pub result_type: String,
+    pub modified: String,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +44,8 @@ struct EverythingResult {
     path: String,
     #[serde(default)]
     size: serde_json::Value,
+    #[serde(rename = "date_modified", default)]
+    date_modified: serde_json::Value,
 }
 
 /// 通过 Everything HTTP API 搜索文件（异步）
@@ -54,7 +57,7 @@ pub async fn search(query: &str, limit: u32) -> Result<Vec<SearchResult>, String
     }
 
     let url = format!(
-        "http://localhost:{}/?search={}&j=1&path_column=1&size_column=1&count={}",
+        "http://localhost:{}/?search={}&j=1&path_column=1&size_column=1&date_modified_column=1&count={}",
         DEFAULT_PORT,
         urlencoding::encode(query),
         limit.min(100)
@@ -101,11 +104,17 @@ pub async fn search(query: &str, limit: u32) -> Result<Vec<SearchResult>, String
             } else {
                 format!("{}\\{}", r.path, r.name)
             };
+            let modified = match &r.date_modified {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Number(n) => n.to_string(),
+                _ => String::new(),
+            };
             SearchResult {
                 name: r.name,
                 path: full_path,
                 size,
                 result_type: if r.result_type == "folder" { "folder" } else { "file" }.to_string(),
+                modified,
             }
         })
         .collect();

@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use lazy_static::lazy_static;
+use base64::Engine;
 
 /// 应用缓存有效期（5分钟）
 const CACHE_DURATION: Duration = Duration::from_secs(300);
@@ -14,9 +14,8 @@ struct AppCache {
     last_updated: Instant,
 }
 
-lazy_static! {
-    static ref APP_CACHE: Mutex<Option<AppCache>> = Mutex::new(None);
-}
+/// 全局应用缓存
+static APP_CACHE: OnceLock<Mutex<Option<AppCache>>> = OnceLock::new();
 
 /// 验证路径安全性，防止命令注入
 fn validate_path(path: &str) -> Result<(), String> {
@@ -142,7 +141,7 @@ pub struct AppInfo {
 pub fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
     // 检查缓存是否有效
     {
-        let cache = APP_CACHE.lock().map_err(|e| e.to_string())?;
+        let cache = APP_CACHE.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
         if let Some(ref cached) = *cache {
             if cached.last_updated.elapsed() < CACHE_DURATION {
                 return Ok(cached.apps.clone());
@@ -213,7 +212,7 @@ pub fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
 
     // 更新缓存
     {
-        let mut cache = APP_CACHE.lock().map_err(|e| e.to_string())?;
+        let mut cache = APP_CACHE.get_or_init(|| Mutex::new(None)).lock().map_err(|e| e.to_string())?;
         *cache = Some(AppCache {
             apps: apps.clone(),
             last_updated: Instant::now(),
@@ -511,7 +510,7 @@ fn extract_icon(path: &str) -> Result<Option<String>, String> {
                     return Ok(None);
                 }
                 
-                let b64 = base64::encode(&png_data);
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&png_data);
                 Ok(Some(format!("data:image/png;base64,{}" , b64)))
             }
             None => Ok(None),
@@ -636,27 +635,3 @@ pub fn remove_custom_app(app: tauri::AppHandle, path: String) -> Result<(), Stri
     write_custom_apps(&app, &apps)
 }
 
-// 简化版：根据扩展名返回emoji
-#[tauri::command]
-pub fn get_file_icon_type(path: String) -> Result<String, String> {
-    let path_lower = path.to_lowercase();
-    if path_lower.ends_with(".exe") || path_lower.ends_with(".lnk") {
-        Ok("app".to_string())
-    } else if path_lower.ends_with(".doc") || path_lower.ends_with(".docx") {
-        Ok("doc".to_string())
-    } else if path_lower.ends_with(".xls") || path_lower.ends_with(".xlsx") {
-        Ok("xls".to_string())
-    } else if path_lower.ends_with(".ppt") || path_lower.ends_with(".pptx") {
-        Ok("ppt".to_string())
-    } else if path_lower.ends_with(".pdf") {
-        Ok("pdf".to_string())
-    } else if path_lower.ends_with(".zip") || path_lower.ends_with(".rar") || path_lower.ends_with(".7z") {
-        Ok("zip".to_string())
-    } else if path_lower.ends_with(".jpg") || path_lower.ends_with(".png") || path_lower.ends_with(".gif") {
-        Ok("image".to_string())
-    } else if path_lower.ends_with(".mp3") || path_lower.ends_with(".mp4") || path_lower.ends_with(".avi") {
-        Ok("media".to_string())
-    } else {
-        Ok("file".to_string())
-    }
-}
