@@ -12,6 +12,7 @@ import '../widgets/glass_container.dart';
 import '../widgets/search_bar_widget.dart';
 import '../widgets/result_list_widget.dart';
 import '../widgets/clipboard_list_widget.dart';
+import '../utils/window_events.dart';
 
 enum _AppMode { search, clipboard }
 
@@ -36,7 +37,8 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
     super.initState();
     ref.read(searchProvider);
 
-    // Auto-focus search bar on startup
+    // Auto-focus search bar on startup and when window is shown
+    onWindowShown = () => _searchBarKey.currentState?.focusInput();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchBarKey.currentState?.focusInput();
     });
@@ -191,11 +193,7 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
     return Focus(
       autofocus: true,
       onFocusChange: (hasFocus) {
-        if (!hasFocus) {
-          _hideWindow();
-        } else {
-          _searchBarKey.currentState?.focusInput();
-        }
+        if (!hasFocus) _hideWindow();
       },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) return _handleKeyDown(event);

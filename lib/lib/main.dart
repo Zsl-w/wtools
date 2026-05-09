@@ -8,6 +8,7 @@ import 'src/rust/frb_generated.dart';
 import 'src/rust/api/window.dart' as rust_window;
 import 'src/rust/api/app.dart' as rust_app;
 import 'app.dart';
+import 'src/utils/window_events.dart';
 
 const double windowWidth = 720;
 const double windowHeight = 520;
@@ -83,12 +84,15 @@ Future<void> _toggleWindow() async {
   } else {
     await windowManager.show();
     await windowManager.focus();
+    onWindowShown?.call();
   }
 }
 
 /// 初始化系统托盘
 Future<void> _initSystemTray() async {
-  await trayManager.setIcon('assets/icon.ico');
+  // Use absolute path to the icon file alongside the exe
+  final iconPath = '$exeDir/assets/icon.ico'.replaceAll('\\', '/');
+  await trayManager.setIcon(iconPath);
   await trayManager.setToolTip('wTools - 快速搜索');
 
   final autostartEnabled = await rust_app.isAutostartEnabled();
