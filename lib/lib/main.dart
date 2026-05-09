@@ -51,13 +51,6 @@ Future<void> main() async {
   await windowManager.setPreventClose(true);
   windowManager.addListener(_AppWindowListener());
 
-  // ── 系统托盘 ──
-  try {
-    await _initSystemTray();
-  } catch (_) {
-    // 托盘初始化失败不阻塞启动
-  }
-
   // ── 全局热键轮询：Alt+Space 切换窗口显隐 ──
   Timer.periodic(const Duration(milliseconds: 50), (_) async {
     final shouldToggle = await rust_window.consumeHotkeyFlag();
@@ -72,6 +65,13 @@ Future<void> main() async {
   await windowManager.hide();
   await windowManager.blur();
   await windowManager.setOpacity(1.0);
+
+  // ── 系统托盘（在 runApp 之后初始化，确保 asset bundle 就绪） ──
+  try {
+    await _initSystemTray();
+  } catch (e) {
+    // 托盘初始化失败不阻塞启动
+  }
 }
 
 /// 切换窗口显隐

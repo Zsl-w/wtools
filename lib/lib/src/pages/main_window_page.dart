@@ -64,7 +64,19 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
     await windowManager.blur();
   }
 
+  Future<void> _quitApp() async {
+    await windowManager.hide();
+    await windowManager.blur();
+    await windowManager.destroy();
+  }
+
   KeyEventResult _handleKeyDown(KeyDownEvent event) {
+    // Alt+F4 quits the app
+    if (event.logicalKey == LogicalKeyboardKey.f4 &&
+        HardwareKeyboard.instance.isAltPressed) {
+      _quitApp();
+      return KeyEventResult.handled;
+    }
     // Tab switches mode
     if (event.logicalKey == LogicalKeyboardKey.tab) {
       setState(() {
