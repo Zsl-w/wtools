@@ -73,8 +73,9 @@ impl ClipboardHistory {
             }
         }
         
-        let preview = if text.len() > MAX_TEXT_PREVIEW {
-            format!("{}...", &text[..MAX_TEXT_PREVIEW])
+        let preview = if text.chars().count() > MAX_TEXT_PREVIEW {
+            let truncated: String = text.chars().take(MAX_TEXT_PREVIEW).collect();
+            format!("{}...", truncated)
         } else {
             text.clone()
         };
