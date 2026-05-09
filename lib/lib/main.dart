@@ -1,8 +1,7 @@
 import 'dart:async';
-import 'dart:io' show File, Platform;
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'src/rust/frb_generated.dart';
@@ -22,15 +21,10 @@ Future<void> main() async {
   PaintingBinding.instance.imageCache.maximumSizeBytes = 20 << 20;
   PaintingBinding.instance.imageCache.maximumSize = 256;
 
-  // Load native DLL from executable directory
   exeDir = Platform.resolvedExecutable.substring(
       0, Platform.resolvedExecutable.lastIndexOf(Platform.pathSeparator));
-  final dllFile = File('$exeDir${Platform.pathSeparator}wtools_native.dll');
-  await RustLib.init(
-    externalLibrary: dllFile.existsSync()
-        ? ExternalLibrary.open(dllFile.absolute.path)
-        : null,
-  );
+
+  await RustLib.init();
 
   // 初始化 Rust 后端（剪贴板监听 + 全局热键）
   await rust_window.initBackend();
