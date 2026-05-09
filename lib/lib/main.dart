@@ -88,7 +88,7 @@ Future<void> _toggleWindow() async {
 
 /// 初始化系统托盘
 Future<void> _initSystemTray() async {
-  await trayManager.setIcon('$exeDir${Platform.pathSeparator}assets${Platform.pathSeparator}icon.ico');
+  await trayManager.setIcon('assets/icon.ico');
   await trayManager.setToolTip('wTools - 快速搜索');
 
   final autostartEnabled = await rust_app.isAutostartEnabled();
