@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show File, Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'src/rust/frb_generated.dart';
@@ -11,6 +13,8 @@ import 'app.dart';
 const double windowWidth = 720;
 const double windowHeight = 520;
 
+late final String exeDir;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -18,7 +22,15 @@ Future<void> main() async {
   PaintingBinding.instance.imageCache.maximumSizeBytes = 20 << 20;
   PaintingBinding.instance.imageCache.maximumSize = 256;
 
-  await RustLib.init();
+  // Load native DLL from executable directory
+  exeDir = Platform.resolvedExecutable.substring(
+      0, Platform.resolvedExecutable.lastIndexOf(Platform.pathSeparator));
+  final dllFile = File('$exeDir${Platform.pathSeparator}wtools_native.dll');
+  await RustLib.init(
+    externalLibrary: dllFile.existsSync()
+        ? ExternalLibrary.open(dllFile.absolute.path)
+        : null,
+  );
 
   // 初始化 Rust 后端（剪贴板监听 + 全局热键）
   await rust_window.initBackend();
@@ -82,7 +94,7 @@ Future<void> _toggleWindow() async {
 
 /// 初始化系统托盘
 Future<void> _initSystemTray() async {
-  await trayManager.setIcon('assets/icon.ico');
+  await trayManager.setIcon('$exeDir${Platform.pathSeparator}assets${Platform.pathSeparator}icon.ico');
   await trayManager.setToolTip('wTools - 快速搜索');
 
   final autostartEnabled = await rust_app.isAutostartEnabled();

@@ -30,3 +30,4 @@ lib/build/
 lib/.dart_tool/
 lib/windows/flutter/ephemeral/
 lib/.flutter-plugins-dependencies
+lib/rust/target/
