@@ -77,8 +77,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
     if (ok) {
       _initialized = true;
       final topApps = _getTopApps(8);
-      // Preload icons for visible top apps
-      IconCache.preload(topApps.map((a) => a.path).toList());
+      // Preload icons in background — cards will show fallback initially then update
+      IconCache.preload(topApps.map((a) => a.path).toList()); // fire-and-forget
       state = state.copyWith(
         appResults: topApps,
         fileResults: const [],

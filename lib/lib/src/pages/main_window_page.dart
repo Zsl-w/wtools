@@ -179,7 +179,11 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
     return Focus(
       autofocus: true,
       onFocusChange: (hasFocus) {
-        if (!hasFocus) _hideWindow();
+        if (!hasFocus) {
+          _hideWindow();
+        } else {
+          _searchBarKey.currentState?.focusInput();
+        }
       },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) return _handleKeyDown(event);
