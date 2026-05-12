@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/search_provider.dart';
 import '../rust/api/app.dart' as rust_app;
 import '../theme/app_theme.dart';
+import '../utils/window_events.dart';
 import 'app_row_widget.dart';
 import 'result_item_widget.dart';
 
@@ -155,27 +156,24 @@ class _ResultListWidgetState extends ConsumerState<ResultListWidget> {
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
       child: Row(
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
-              color: isDark
-                  ? AppColors.textTertiaryDark
-                  : AppColors.textTertiaryLight,
+              color: AppColors.textTertiary,
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Divider(
               height: 1,
-              color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.05),
+              color: Colors.black.withValues(alpha: 0.05),
             ),
           ),
         ],
@@ -184,7 +182,6 @@ class _ResultListWidgetState extends ConsumerState<ResultListWidget> {
   }
 
   Widget _buildEmpty(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(48),
@@ -194,18 +191,14 @@ class _ResultListWidgetState extends ConsumerState<ResultListWidget> {
             Icon(
               Icons.search_off_rounded,
               size: 40,
-              color: isDark
-                  ? AppColors.textTertiaryDark.withValues(alpha: 0.4)
-                  : AppColors.textTertiaryLight.withValues(alpha: 0.4),
+              color: AppColors.textTertiary.withValues(alpha: 0.4),
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               '输入关键词搜索应用和文件',
               style: TextStyle(
                 fontSize: 13,
-                color: isDark
-                    ? AppColors.textTertiaryDark
-                    : AppColors.textTertiaryLight,
+                color: AppColors.textTertiary,
               ),
             ),
           ],
@@ -235,15 +228,12 @@ class _ResultListWidgetState extends ConsumerState<ResultListWidget> {
   }
 
   Widget _buildErrorBanner(BuildContext context, String error) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: isDark
-            ? const Color(0x33FF6B6B)
-            : const Color(0x1AFF6B6B),
+        color: const Color(0x1AFF6B6B),
         border: Border.all(
           color: Colors.redAccent.withValues(alpha: 0.2),
         ),
@@ -269,16 +259,21 @@ class _ResultListWidgetState extends ConsumerState<ResultListWidget> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: GestureDetector(
         onTap: () async {
-          final result = await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: ['exe'],
-          );
-          if (result != null && result.files.isNotEmpty) {
-            final path = result.files.first.path!;
-            final name = path.split('\\').last.replaceAll('.exe', '');
-            await rust_app.addCustomApp(name: name, path: path);
-            await ref.read(searchProvider.notifier).refreshIndex();
-            ref.read(searchProvider.notifier).search(query);
+          beginPicker();
+          try {
+            final result = await FilePicker.platform.pickFiles(
+              type: FileType.custom,
+              allowedExtensions: ['exe'],
+            );
+            if (result != null && result.files.isNotEmpty) {
+              final path = result.files.first.path!;
+              final name = path.split('\\').last.replaceAll('.exe', '');
+              await rust_app.addCustomApp(name: name, path: path);
+              await ref.read(searchProvider.notifier).refreshIndex();
+              ref.read(searchProvider.notifier).search(query);
+            }
+          } finally {
+            endPicker();
           }
         },
         child: Container(

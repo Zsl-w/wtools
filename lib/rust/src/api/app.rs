@@ -646,9 +646,21 @@ pub fn set_autostart(enabled: bool) -> Result<(), String> {
 
             let result = if enabled {
                 let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+                // 校验 exe 路径是否有效——避免开发构建的缓存路径写入注册表
                 let exe_str = exe.to_string_lossy();
-                let wide_exe: Vec<u16> = OsStr::new(&*exe_str).encode_wide().collect();
-                let byte_len = (wide_exe.len() + 1) * 2;
+                let exe_lower = exe_str.to_lowercase();
+                if !exe_lower.ends_with("lib.exe") &&
+                   !exe_lower.ends_with("wtools.exe") &&
+                   !exe_lower.ends_with(".exe") {
+                    return Err("可执行文件路径无效".to_string());
+                }
+                // 检查路径中是否包含开发构建缓存目录特征
+                if exe_lower.contains("build\\windows") || exe_lower.contains("flutter_build") {
+                    return Err("检测到开发构建路径，请使用安装版设置自启动".to_string());
+                }
+                let mut wide_exe: Vec<u16> = OsStr::new(&*exe_str).encode_wide().collect();
+                wide_exe.push(0);
+                let byte_len = wide_exe.len() * 2;
                 RegSetValueExW(hkey, value.as_ptr(), 0, REG_SZ, wide_exe.as_ptr() as *const u8, byte_len as u32)
             } else {
                 RegDeleteValueW(hkey, value.as_ptr())

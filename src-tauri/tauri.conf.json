@@ -48,7 +48,10 @@
       "nsis": {
         "installMode": "currentUser"
       }
-    }
+    },
+    "resources": [
+      "icons/*"
+    ]
   },
   "plugins": {
     "shell": {

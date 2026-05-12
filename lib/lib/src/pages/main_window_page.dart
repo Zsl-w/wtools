@@ -5,7 +5,6 @@ import 'package:window_manager/window_manager.dart';
 import '../models/search_result.dart';
 import '../providers/search_provider.dart';
 import '../providers/clipboard_provider.dart';
-import '../providers/settings_provider.dart';
 import '../rust/api/app.dart' as rust_app;
 import '../theme/app_theme.dart';
 import '../widgets/glass_container.dart';
@@ -31,6 +30,7 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
   late final Animation<double> _fadeAnim;
 
   var _mode = _AppMode.search;
+  var _isOpening = false;
 
   @override
   void initState() {
@@ -160,14 +160,23 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
   }
 
   Future<void> _openSelectedSearch() async {
+    if (_isOpening) return;
+    _isOpening = true;
+
     final state = ref.read(searchProvider);
 
     late final SearchResult item;
     if (state.focusArea == FocusArea.appRow) {
-      if (state.appResults.isEmpty) return;
+      if (state.appResults.isEmpty) {
+        _isOpening = false;
+        return;
+      }
       item = state.appResults[state.selectedAppIndex];
     } else {
-      if (state.fileResults.isEmpty) return;
+      if (state.fileResults.isEmpty) {
+        _isOpening = false;
+        return;
+      }
       item = state.fileResults[state.selectedFileIndex];
     }
 
@@ -178,7 +187,10 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
         await rust_app.openFile(path: item.path);
       }
       await _hideWindow();
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isOpening = false;
+    }
   }
 
   Future<void> _copyClipboardAndHide() async {
@@ -188,20 +200,14 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Focus(
       autofocus: true,
-      onFocusChange: (hasFocus) {
-        if (!hasFocus) _hideWindow();
-      },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) return _handleKeyDown(event);
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-        backgroundColor:
-            isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F5),
+        backgroundColor: const Color(0xFFF5F3EE),
         body: ScaleTransition(
           scale: Tween<double>(begin: 0.94, end: 1.0).animate(_scaleAnim),
           child: FadeTransition(
@@ -215,16 +221,19 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
                   // ── Search bar + mode indicator ──
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: SearchBarWidget(key: _searchBarKey),
+                    child: SearchBarWidget(
+                      key: _searchBarKey,
+                      onSubmitted: _openSelectedSearch,
+                    ),
                   ),
                   // Mode indicator
-                  _buildModeIndicator(isDark),
+                  _buildModeIndicator(),
                   // Divider
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Divider(
                       height: 1,
-                      color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                     ),
                   ),
                   // ── Content area ──
@@ -233,8 +242,6 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
                         ? const ResultListWidget()
                         : const ClipboardListWidget(),
                   ),
-                  // ── Bottom bar ──
-                  _buildBottomBar(isDark),
                 ],
               ),
             ),
@@ -244,40 +251,20 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
     );
   }
 
-  Widget _buildModeIndicator(bool isDark) {
+  Widget _buildModeIndicator() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 6, 24, 6),
       child: Row(
         children: [
-          _modeTab('🔍 搜索', _AppMode.search, isDark),
+          _modeTab('🔍 搜索', _AppMode.search),
           const SizedBox(width: 4),
-          _modeTab('📋 剪贴板', _AppMode.clipboard, isDark),
-          const Spacer(),
-          // Theme toggle
-          GestureDetector(
-            onTap: () => ref.read(settingsProvider.notifier).cycleTheme(),
-            child: Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : Colors.black.withValues(alpha: 0.04),
-              ),
-              child: Icon(
-                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                size: 14,
-                color: isDark ? AppColors.accentLight : AppColors.accent,
-              ),
-            ),
-          ),
+          _modeTab('📋 剪贴板', _AppMode.clipboard),
         ],
       ),
     );
   }
 
-  Widget _modeTab(String label, _AppMode mode, bool isDark) {
+  Widget _modeTab(String label, _AppMode mode) {
     final active = _mode == mode;
     return GestureDetector(
       onTap: () => setState(() => _mode = mode),
@@ -295,78 +282,10 @@ class _MainWindowPageState extends ConsumerState<MainWindowPage>
           style: TextStyle(
             fontSize: 12,
             fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-            color: active
-                ? (isDark ? AppColors.accentLight : AppColors.accent)
-                : (isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
+            color: active ? AppColors.accent : AppColors.textTertiary,
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildBottomBar(bool isDark) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: Colors.black.withValues(alpha: isDark ? 0.06 : 0.03),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          _bottomHint('←→', '应用', isDark),
-          const SizedBox(width: 12),
-          _bottomHint('↑↓', '文件', isDark),
-          const SizedBox(width: 12),
-          _bottomHint('Enter', '打开', isDark),
-          const SizedBox(width: 12),
-          _bottomHint('Tab', '切换', isDark),
-          const SizedBox(width: 12),
-          _bottomHint('Esc', '关闭', isDark),
-          const Spacer(),
-          _bottomHint('Alt+Space', '唤起', isDark),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomHint(String key, String action, bool isDark) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.05),
-          ),
-          child: Text(
-            key,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: isDark
-                  ? AppColors.textSecondaryDark
-                  : AppColors.textSecondaryLight,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          action,
-          style: TextStyle(
-            fontSize: 10,
-            color: isDark
-                ? AppColors.textTertiaryDark
-                : AppColors.textTertiaryLight,
-          ),
-        ),
-      ],
     );
   }
 }

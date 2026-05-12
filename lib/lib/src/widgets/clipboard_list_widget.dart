@@ -19,12 +19,6 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
   bool _showToast = false;
 
   @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(clipboardProvider.notifier).loadHistory());
-  }
-
-  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
@@ -34,19 +28,20 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       const itemExtent = 100.0;
-      final itemTop = index * itemExtent;
+      const topPad = 4.0;
+      final itemTop = topPad + index * itemExtent;
       final viewportHeight = _scrollController.position.viewportDimension;
       final offset = _scrollController.offset;
 
-      if (itemTop < offset) {
+      if (itemTop - 2 < offset) {
         _scrollController.animateTo(
-          itemTop.clamp(0.0, _scrollController.position.maxScrollExtent),
+          (itemTop - 2).clamp(0.0, _scrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 80),
           curve: Curves.easeOut,
         );
-      } else if (itemTop + itemExtent > offset + viewportHeight) {
+      } else if (itemTop + itemExtent + 2 > offset + viewportHeight) {
         _scrollController.animateTo(
-          (itemTop - viewportHeight + itemExtent)
+          (itemTop - viewportHeight + itemExtent + 2)
               .clamp(0.0, _scrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 80),
           curve: Curves.easeOut,
@@ -72,15 +67,14 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(clipboardProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final items = state.filteredItems;
 
     if (state.items.isEmpty) {
-      return _buildEmpty(context, isDark);
+      return _buildEmpty(context);
     }
 
     if (state.query.isNotEmpty && items.isEmpty) {
-      return _buildNoResults(context, isDark);
+      return _buildNoResults(context);
     }
 
     _scrollToSelected(state.selectedIndex);
@@ -90,18 +84,18 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
         Column(
           children: [
             // Header
-            _buildHeader(context, items.length, state.items.length, isDark),
+            _buildHeader(context, items.length, state.items.length),
             // List
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.only(top: 4, bottom: 40),
                 itemExtent: 100,
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final item = items[index];
                   final isSelected = state.selectedIndex == index;
-                  return _buildItem(context, item, index, isSelected, isDark);
+                  return _buildItem(context, item, index, isSelected);
                 },
               ),
             ),
@@ -122,10 +116,10 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
-                    color: AppColors.accent.withValues(alpha: 0.9),
+                    color: AppColors.primaryLight.withValues(alpha: 0.9),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.3),
+                        color: AppColors.primaryLight.withValues(alpha: 0.3),
                         blurRadius: 12,
                       ),
                     ],
@@ -151,7 +145,7 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, int shown, int total, bool isDark) {
+  Widget _buildHeader(BuildContext context, int shown, int total) {
     final title = shown == total
         ? '剪贴板历史 ($total)'
         : '剪贴板 ($shown / $total)';
@@ -161,11 +155,11 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
-              color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
+              color: AppColors.textTertiary,
             ),
           ),
           const Spacer(),
@@ -186,7 +180,7 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
   }
 
   Widget _buildItem(BuildContext context, ClipboardItem item,
-      int index, bool isSelected, bool isDark) {
+      int index, bool isSelected) {
     return GestureDetector(
       onTap: () {
         ref.read(clipboardProvider.notifier).selectIndex(index);
@@ -198,11 +192,9 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: isSelected
-              ? (isDark
-                  ? Colors.white.withValues(alpha: 0.10)
-                  : const Color(0xFFF0F0F0))
+              ? const Color(0xFFF0F0F0)
               : (item.pinned
-                  ? AppColors.accent.withValues(alpha: isDark ? 0.06 : 0.04)
+                  ? AppColors.secondary.withValues(alpha: 0.04)
                   : Colors.transparent),
           border: isSelected
               ? Border.all(color: AppColors.accent.withValues(alpha: 0.35), width: 0.5)
@@ -248,9 +240,9 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
                       item.preview,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   const SizedBox(height: 3),
@@ -262,16 +254,16 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
                           margin: const EdgeInsets.only(right: 6),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(3),
-                            color: AppColors.accent.withValues(alpha: 0.15),
+                            color: AppColors.secondary.withValues(alpha: 0.15),
                           ),
                           child: const Text('📌',
                               style: TextStyle(fontSize: 9)),
                         ),
                       Text(
                         formatRelativeTime(item.timestamp.toInt()),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10.5,
-                          color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     ],
@@ -282,7 +274,7 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
             // Action buttons — outside Expanded, fixed position
             _actionButton(
               Icons.push_pin,
-              item.pinned ? AppColors.accent : null,
+              item.pinned ? AppColors.secondary : null,
               () => ref.read(clipboardProvider.notifier).togglePin(item.id),
             ),
             const SizedBox(width: 4),
@@ -332,25 +324,23 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
     );
   }
 
-  Widget _buildNoResults(BuildContext context, bool isDark) {
+  Widget _buildNoResults(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.search_off_rounded, size: 40,
-              color: isDark
-                  ? AppColors.textTertiaryDark.withValues(alpha: 0.3)
-                  : AppColors.textTertiaryLight.withValues(alpha: 0.3)),
+              color: AppColors.textTertiary.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
-          Text('剪贴板中无匹配内容',
+          const Text('剪贴板中无匹配内容',
               style: TextStyle(fontSize: 13,
-                  color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight)),
+                  color: AppColors.textTertiary)),
         ],
       ),
     );
   }
 
-  Widget _buildEmpty(BuildContext context, bool isDark) {
+  Widget _buildEmpty(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -358,17 +348,15 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
           Icon(
             Icons.content_paste_rounded,
             size: 40,
-            color: isDark
-                ? AppColors.textTertiaryDark.withValues(alpha: 0.3)
-                : AppColors.textTertiaryLight.withValues(alpha: 0.3),
+            color: AppColors.textTertiary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 12),
-          Text(
+          const Text(
             '剪贴板为空',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
+              color: AppColors.textTertiary,
             ),
           ),
           const SizedBox(height: 4),
@@ -376,9 +364,7 @@ class _ClipboardListWidgetState extends ConsumerState<ClipboardListWidget> {
             '复制文本或图片后将自动记录',
             style: TextStyle(
               fontSize: 12,
-              color: isDark
-                  ? AppColors.textTertiaryDark.withValues(alpha: 0.6)
-                  : AppColors.textTertiaryLight.withValues(alpha: 0.6),
+              color: AppColors.textTertiary.withValues(alpha: 0.6),
             ),
           ),
         ],

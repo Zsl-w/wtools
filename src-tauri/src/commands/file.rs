@@ -37,7 +37,7 @@ pub async fn search_files(query: String, limit: u32) -> Result<Vec<FileResult>, 
             .collect()),
         Err(e) => {
             // 返回错误信息，让前端能够显示问题
-            eprintln!("[search_files] 搜索失败: {}", e);
+            log::error!("[search_files] 搜索失败: {}", e);
             Err(format!("文件搜索失败: {}", e))
         }
     }

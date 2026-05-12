@@ -1,5 +1,59 @@
 # 变更日志
 
+## 2026-05-12 — 修复 Enter 键第二次搜索后失效
+
+### 问题
+- 第一次搜索按 Enter 可以正常打开应用/文件
+- 第二次搜索后按 Enter 无反应，无法打开选中项
+
+### 根因分析
+- 搜索框 `TextField` 持有焦点时，Flutter 单行文本框会消费 Enter 键事件（阻止换行），导致事件不冒泡到外层 `Focus.onKeyEvent` 处理器
+- 整个 Enter 打开逻辑依赖外层 `Focus` 的按键冒泡，当 `TextField` 拥有焦点时此通路不可靠
+
+### 修复
+- **search_bar_widget.dart**: 新增 `onSubmitted` 回调参数，绑定到 `TextField.onSubmitted`
+- **main_window_page.dart**: 传递 `_openSelectedSearch` 给 `SearchBarWidget.onSubmitted`，使 Enter 直接触发打开逻辑；新增 `_isOpening` 重入守卫防止重复触发
+
+### 改动文件列表
+- `lib/lib/src/widgets/search_bar_widget.dart` — 新增 `onSubmitted` 回调 + `TextField.onSubmitted` 绑定
+- `lib/lib/src/pages/main_window_page.dart` — 传递回调 + 重入守卫
+- `CHANGELOG.md` — 记录本次修复
+
+## 2026-05-10 — 代码审查修复（安全、性能、架构）
+
+### 修复项
+
+#### 安全修复
+- **ResultItem**: 修复 `v-html` 高亮偏移 bug——旧算法在 `escapeHtml` 后使用原始字符串索引切片，导致包含 `&<>"'` 的文件名高亮位置错误。改为先对全文转义，再在转义后文本中做匹配插入 `<mark>`
+- **launch_app / open_file / show_in_folder**: 将 `cmd /C start` 替换为 `ShellExecuteW` Win32 API，避免 shell 解释注入风险
+
+#### 性能优化
+- **剪贴板图片加载**: 历史记录中的图片改为返回缩略图（~5-10KB），而非全尺寸原图（~1-2MB），切换剪贴板 Tab 时数据传输量降低 95%+
+- **get_clipboard_history**: 返回类型从 `Vec<ClipboardItem>` 改为 `Result<Vec<ClipboardItem>, String>`，前端可感知错误
+- **scan_shortcuts**: 添加 `depth` 递归深度参数（开始菜单/桌面限 2-3 层），防止深层嵌套目录扫描耗时过长
+
+#### 架构改进
+- **剪贴板监视线程**: `stop_clipboard_monitor` 现在使用 `JoinHandle` 等待线程退出，而非仅设标志位，避免进程退出时资源泄漏
+- **主题持久化**: `settings.ts` 的 `theme` 从 Pinia 内存态改为 `localStorage` 持久存储，刷新后不丢失
+- **删除死代码**: 移除 `preview_handler` 模块（`com_interfaces.rs`、`host.rs`、`mod.rs`），该模块实现了 Windows Shell Preview Handler 但从未被任何 Tauri command 调用
+- **删除未使用组件**: 移除 `StatusBar/index.vue`（从未被引用）
+- **日志统一**: 全面引入 `log` + `env_logger` crate，所有 `println!` → `log::info!`，`eprintln!` → `log::error!`/`log::warn!`；`everything/log.rs` 的文件日志改为转发到 `log` crate
+
+### 改动文件列表
+- `src/components/ResultItem/index.vue` — 高亮算法重写
+- `src/components/ClipboardList/index.vue` — 复制图片改用 `get_clipboard_image` 命令
+- `src/components/StatusBar/` — 删除整个目录
+- `src/stores/settings.ts` — 主题 localStorage 持久化
+- `src-tauri/Cargo.toml` — 添加 `log`、`env_logger` 依赖
+- `src-tauri/src/lib.rs` — 移除 `preview_handler` 模块，注册 `get_clipboard_image` 命令，初始化 logger，替换 println/eprintln
+- `src-tauri/src/commands/app.rs` — `launch_app`/`open_file`/`show_in_folder` 改用 `ShellExecuteW`，`scan_shortcuts` 添加深度限制
+- `src-tauri/src/commands/clipboard.rs` — `get_clipboard_history` 返回缩略图+Result 类型，新增 `get_clipboard_image` 命令
+- `src-tauri/src/commands/file.rs` — 替换 eprintln
+- `src-tauri/src/clipboard/history.rs` — `add_image` 生成缩略图，`remove_item`/`clear`/`cleanup_images` 处理缩略图文件，新增 `image_dir()` 方法
+- `src-tauri/src/clipboard/monitor.rs` — `JoinHandle` 优雅退出，替换 println/eprintln
+- `src-tauri/src/everything/log.rs` — 简化为转发 `log` crate
+- `src-tauri/src/preview_handler/` — 删除整个目录
+
 ## 2026-05-09 — Flutter 窗口渲染与键盘导航修复
 
 ### 问题

@@ -1,4 +1,4 @@
-# wTools v0.4.0 Installer
+# wTools v0.4.1 Installer
 # Run: powershell -ExecutionPolicy Bypass -File install.ps1
 
 $ErrorActionPreference = "Stop"

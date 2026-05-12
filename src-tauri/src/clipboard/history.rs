@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use image::GenericImageView;
 
 const MAX_HISTORY: usize = 100;
 const MAX_TEXT_PREVIEW: usize = 200;
@@ -52,11 +53,11 @@ impl ClipboardHistory {
         match serde_json::to_string_pretty(&self.items) {
             Ok(content) => {
                 if let Err(e) = fs::write(&self.file_path, content) {
-                    eprintln!("[clipboard] 保存历史记录失败: {}", e);
+                    log::error!("[clipboard] 保存历史记录失败: {}", e);
                 }
             }
             Err(e) => {
-                eprintln!("[clipboard] 序列化历史记录失败: {}", e);
+                log::error!("[clipboard] 序列化历史记录失败: {}", e);
             }
         }
     }
@@ -102,11 +103,27 @@ impl ClipboardHistory {
         let id = generate_id();
         let size = image_data.len();
 
-        // 保存图片到文件而非内联 base64
+        // Save original image
         let image_file = self.image_dir.join(format!("{}.png", id));
         if let Err(e) = fs::write(&image_file, &image_data) {
-            eprintln!("[clipboard] 保存图片文件失败: {}", e);
+            log::error!("[clipboard] 保存图片文件失败: {}", e);
             return;
+        }
+
+        // Generate thumbnail (max 200px wide)
+        if let Ok(img) = image::load_from_memory(&image_data) {
+            let thumb_width = 200;
+            let (orig_w, orig_h) = img.dimensions();
+            let thumb_height = if orig_w > thumb_width {
+                (orig_h as f32 * thumb_width as f32 / orig_w as f32) as u32
+            } else {
+                orig_h
+            };
+            let thumbnail = img.thumbnail(thumb_width, thumb_height.max(1));
+            let thumb_file = self.image_dir.join(format!("{}_thumb.png", id));
+            if let Err(e) = thumbnail.save_with_format(&thumb_file, image::ImageFormat::Png) {
+                log::error!("[clipboard] 保存缩略图失败: {}", e);
+            }
         }
 
         let item = ClipboardItem {
@@ -154,6 +171,11 @@ impl ClipboardHistory {
     pub fn get_items(&self) -> &[ClipboardItem] {
         &self.items
     }
+
+    #[allow(dead_code)]
+    pub fn image_dir(&self) -> &Path {
+        &self.image_dir
+    }
     
     pub fn toggle_pin(&mut self, id: &str) {
         if let Some(item) = self.items.iter_mut().find(|i| i.id == id) {
@@ -165,11 +187,13 @@ impl ClipboardHistory {
     }
 
     pub fn remove_item(&mut self, id: &str) {
-        // 删除关联的图片文件
         if let Some(item) = self.items.iter().find(|i| i.id == id) {
             if item.content_type == "image" {
                 if let Some(ref path) = item.content {
-                    fs::remove_file(path).ok();
+                    let _ = fs::remove_file(path);
+                    let thumb_path = PathBuf::from(path).with_extension("png");
+                    let thumb_file = thumb_path.with_file_name(format!("{}_thumb.png", id));
+                    let _ = fs::remove_file(thumb_file);
                 }
             }
         }
@@ -178,11 +202,12 @@ impl ClipboardHistory {
     }
 
     pub fn clear(&mut self) {
-        // 清理所有图片文件
         for item in &self.items {
             if item.content_type == "image" {
                 if let Some(ref path) = item.content {
-                    fs::remove_file(path).ok();
+                    let _ = fs::remove_file(path);
+                    let thumb_file = PathBuf::from(path).with_file_name(format!("{}_thumb.png", item.id));
+                    let _ = fs::remove_file(thumb_file);
                 }
             }
         }
@@ -201,10 +226,14 @@ impl ClipboardHistory {
         if let Ok(entries) = fs::read_dir(&self.image_dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
-                if let Some(id) = name.strip_suffix(".png") {
-                    if !existing_ids.contains(id) {
-                        fs::remove_file(entry.path()).ok();
-                    }
+                let should_remove = if let Some(id) = name.strip_suffix(".png") {
+                    let id = id.strip_suffix("_thumb").unwrap_or(id);
+                    !existing_ids.contains(id)
+                } else {
+                    false
+                };
+                if should_remove {
+                    let _ = fs::remove_file(entry.path());
                 }
             }
         }

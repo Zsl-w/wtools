@@ -1,29 +1,26 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
+use std::sync::Mutex;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use super::history::get_clipboard_history;
 
 #[cfg(target_os = "windows")]
-use winapi::um::winuser::{CF_HDROP};
+use winapi::um::winuser::CF_HDROP;
 
-/// 监控是否正在运行
 static MONITOR_RUNNING: AtomicBool = AtomicBool::new(false);
-
-/// 监控是否应该停止
 static MONITOR_STOP: AtomicBool = AtomicBool::new(false);
 
-/// 启动剪贴板监听
+static MONITOR_HANDLE: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+
 pub fn start_clipboard_monitor() {
-    // 如果已经在运行，直接返回
     if MONITOR_RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }
 
-    // 重置停止标志
     MONITOR_STOP.store(false, Ordering::SeqCst);
 
-    thread::spawn(|| {
+    let handle = thread::spawn(|| {
         let mut last_text: Option<String> = None;
         let mut last_image_hash: Option<u64> = None;
         let mut last_files_hash: Option<u64> = None;
@@ -33,7 +30,7 @@ pub fn start_clipboard_monitor() {
         loop {
             // 检查是否需要停止
             if MONITOR_STOP.load(Ordering::SeqCst) {
-                println!("[clipboard] 监听线程收到停止信号，退出");
+                log::info!("[clipboard] 监听线程收到停止信号，退出");
                 MONITOR_RUNNING.store(false, Ordering::SeqCst);
                 break;
             }
@@ -60,7 +57,7 @@ pub fn start_clipboard_monitor() {
                     Err(e) => {
                         error_count += 1;
                         if error_count <= MAX_CONSECUTIVE_ERRORS {
-                            eprintln!("[clipboard] 读取图片失败 ({}): {}", error_count, e);
+                            log::error!("[clipboard] 读取图片失败 ({}): {}", error_count, e);
                         }
                     }
                 }
@@ -85,7 +82,7 @@ pub fn start_clipboard_monitor() {
                     Err(e) => {
                         error_count += 1;
                         if error_count <= MAX_CONSECUTIVE_ERRORS {
-                            eprintln!("[clipboard] 读取文件列表失败 ({}): {}", error_count, e);
+                            log::error!("[clipboard] 读取文件列表失败 ({}): {}", error_count, e);
                         }
                     }
                 }
@@ -113,30 +110,39 @@ pub fn start_clipboard_monitor() {
                 Err(e) => {
                     error_count += 1;
                     if error_count <= MAX_CONSECUTIVE_ERRORS {
-                        eprintln!("[clipboard] 读取文本失败 ({}): {}", error_count, e);
+                        log::error!("[clipboard] 读取文本失败 ({}): {}", error_count, e);
                     }
                 }
             }
 
             // 错误过多时延长等待时间
             if error_count > MAX_CONSECUTIVE_ERRORS {
-                eprintln!("[clipboard] 连续错误过多，暂停 5 秒");
+                log::warn!("[clipboard] 连续错误过多，暂停 5 秒");
                 thread::sleep(Duration::from_secs(5));
-                // 重置错误计数，给系统恢复的机会
                 error_count = 0;
             } else {
                 thread::sleep(Duration::from_millis(500));
             }
         }
+
+        MONITOR_RUNNING.store(false, Ordering::SeqCst);
     });
+
+    if let Ok(mut handle_guard) = MONITOR_HANDLE.lock() {
+        *handle_guard = Some(handle);
+    }
 }
 
-/// 停止剪贴板监听
 pub fn stop_clipboard_monitor() {
     MONITOR_STOP.store(true, Ordering::SeqCst);
+
+    if let Ok(mut handle_guard) = MONITOR_HANDLE.lock() {
+        if let Some(handle) = handle_guard.take() {
+            let _ = handle.join();
+        }
+    }
 }
 
-/// 检查监听是否正在运行
 pub fn is_monitor_running() -> bool {
     MONITOR_RUNNING.load(Ordering::SeqCst)
 }

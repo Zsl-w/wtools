@@ -88,7 +88,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
       // Preload icons in background, then refresh to update cards
       IconCache.preload(topApps.map((a) => a.path).toList()).then((_) {
         if (_initialized) {
-          state = state.copyWith();
+          // Create new list reference to trigger rebuild in select() watchers
+          state = state.copyWith(appResults: List.from(state.appResults));
         }
       });
     }

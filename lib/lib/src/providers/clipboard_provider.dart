@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../rust/api/clipboard.dart' as rust_cb;
 import '../rust/clipboard_impl/history.dart';
@@ -34,11 +35,23 @@ class ClipboardState {
 }
 
 class ClipboardNotifier extends StateNotifier<ClipboardState> {
-  ClipboardNotifier() : super(const ClipboardState());
+  Timer? _pollTimer;
+
+  ClipboardNotifier() : super(const ClipboardState()) {
+    loadHistory();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => loadHistory());
+  }
 
   Future<void> loadHistory() async {
     try {
       final items = await rust_cb.getClipboardHistory();
+      // Skip update if nothing changed: compare first AND last item IDs
+      if (items.isNotEmpty && state.items.isNotEmpty &&
+          items.length == state.items.length &&
+          items.first.id == state.items.first.id &&
+          items.last.id == state.items.last.id) {
+        return;
+      }
       state = state.copyWith(items: items);
     } catch (_) {}
   }
@@ -57,7 +70,6 @@ class ClipboardNotifier extends StateNotifier<ClipboardState> {
     return copyClipboardItem(items[state.selectedIndex]);
   }
 
-  /// Copy a specific clipboard item (used by search results).
   Future<bool> copyClipboardItem(ClipboardItem item) async {
     try {
       if (item.contentType == 'image') {
@@ -113,6 +125,12 @@ class ClipboardNotifier extends StateNotifier<ClipboardState> {
       selectedIndex:
           (state.selectedIndex - 1 + items.length) % items.length,
     );
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 }
 

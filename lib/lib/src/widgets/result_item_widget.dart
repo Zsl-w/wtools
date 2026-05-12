@@ -37,8 +37,16 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
   void didUpdateWidget(ResultItemWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.path != widget.item.path) {
-      _iconBytes = IconCache.get(widget.item.path);
-      if (_iconBytes == null) _loadIcon();
+      _iconBytes = null;
+    }
+    if (_iconBytes == null) {
+      final cached = IconCache.get(widget.item.path);
+      if (cached != null) {
+        _iconBytes = cached;
+        if (mounted) setState(() {});
+        return;
+      }
+      _loadIcon();
     }
   }
 
@@ -96,7 +104,6 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = typeColor(widget.item.type, widget.item.extension);
     final label = typeLabel(widget.item.type, widget.item.extension);
 
@@ -109,9 +116,7 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: widget.isSelected
-              ? (isDark
-                  ? Colors.white.withValues(alpha: 0.10)
-                  : const Color(0xFFF0F0F0))
+              ? const Color(0xFFF0F0F0)
               : Colors.transparent,
           border: widget.isSelected
               ? Border.all(
@@ -163,22 +168,20 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHighlightedName(isDark),
+                  _buildHighlightedName(),
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      _buildTypeBadge(label, isDark),
+                      _buildTypeBadge(label),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           widget.item.path,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
-                            color: isDark
-                                ? AppColors.textTertiaryDark
-                                : AppColors.textTertiaryLight,
+                            color: AppColors.textTertiary,
                           ),
                         ),
                       ),
@@ -248,7 +251,7 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
     );
   }
 
-  Widget _buildHighlightedName(bool isDark) {
+  Widget _buildHighlightedName() {
     final name = widget.item.name;
     final query = widget.query;
 
@@ -257,10 +260,10 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
         name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 13.5,
           fontWeight: FontWeight.w600,
-          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+          color: AppColors.textPrimary,
         ),
       );
     }
@@ -273,10 +276,10 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 13.5,
           fontWeight: FontWeight.w600,
-          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+          color: AppColors.textPrimary,
         ),
         children: [
           if (idx > 0) TextSpan(text: name.substring(0, idx)),
@@ -284,7 +287,7 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
             text: name.substring(idx, idx + query.length),
             style: TextStyle(
               backgroundColor: AppColors.accent.withValues(alpha: 0.2),
-              color: isDark ? AppColors.accentLight : AppColors.accentDark,
+              color: AppColors.accent,
             ),
           ),
           if (idx + query.length < name.length)
@@ -295,22 +298,20 @@ class _ResultItemWidgetState extends State<ResultItemWidget> {
     );
   }
 
-  Widget _buildTypeBadge(String label, bool isDark) {
+  Widget _buildTypeBadge(String label) {
     final color = typeColor(widget.item.type, widget.item.extension);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
-        color: isDark
-            ? color.withValues(alpha: 0.15)
-            : color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: isDark ? color.withValues(alpha: 0.9) : color,
+          color: color,
         ),
       ),
     );

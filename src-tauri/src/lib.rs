@@ -10,7 +10,12 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut}
 mod commands;
 mod everything;
 mod clipboard;
-mod preview_handler;
+
+/// Initialize logger
+fn init_logger() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn"))
+        .init();
+}
 
 /// 防抖间隔（毫秒）
 const DEBOUNCE_MS: u64 = 300;
@@ -20,6 +25,7 @@ static LAST_TRIGGER_MS: AtomicU64 = AtomicU64::new(0);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    init_logger();
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -49,6 +55,7 @@ pub fn run() {
             commands::clipboard::toggle_pin_clipboard_item,
             commands::clipboard::copy_to_clipboard,
             commands::clipboard::copy_image_to_clipboard,
+            commands::clipboard::get_clipboard_image,
         ])
         .setup(|app| {
             use tauri_plugin_autostart::ManagerExt;
@@ -72,10 +79,33 @@ pub fn run() {
                 .item(&quit_item)
                 .build()?;
 
-            TrayIconBuilder::with_id("tray")
-                .icon(app.default_window_icon().unwrap().clone())
+            // 设置托盘图标 - 尝试多种方式获取图标，并添加详细日志
+            let tray_icon = app.default_window_icon().cloned().unwrap_or_else(|| {
+                log::warn!("使用空白默认图标");
+                tauri::image::Image::new_owned(vec![255u8; 32 * 32 * 4], 32, 32)
+            });
+
+            let tray_builder = TrayIconBuilder::with_id("tray")
+                .icon(tray_icon)
                 .menu(&menu)
-                .tooltip("wTools - 快速搜索")
+                .show_menu_on_left_click(false)
+                .tooltip("wTools - 快速搜索");
+
+            #[cfg(target_os = "windows")]
+            let tray_builder = tray_builder.on_tray_icon_event(|tray, event| {
+                match event {
+                    tauri::tray::TrayIconEvent::Click { button, .. } => {
+                        log::debug!("托盘图标点击 (Windows): {:?}", button);
+                        // 在 Windows 上，有些时候需要手动处理右键点击显示菜单
+                    }
+                    tauri::tray::TrayIconEvent::DoubleClick { .. } => {
+                        toggle_window(&tray.app_handle());
+                    }
+                    _ => {}
+                }
+            });
+
+            tray_builder
                 .on_menu_event(move |app: &tauri::AppHandle, event| {
                     match event.id.as_ref() {
                         "show" => {
@@ -93,9 +123,15 @@ pub fn run() {
                     }
                 })
                 .on_tray_icon_event(|tray: &tauri::tray::TrayIcon, event| {
-                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
-                        let app = tray.app_handle().clone();
-                        toggle_window(&app);
+                    match event {
+                        tauri::tray::TrayIconEvent::DoubleClick { .. } => {
+                            let app = tray.app_handle().clone();
+                            toggle_window(&app);
+                        }
+                        tauri::tray::TrayIconEvent::Click { button, .. } => {
+                            log::debug!("托盘图标点击: {:?}", button);
+                        }
+                        _ => {}
                     }
                 })
                 .build(app)?;
@@ -107,22 +143,21 @@ pub fn run() {
                 if !should_process_trigger() {
                     return;
                 }
-                println!("Alt+Space 触发");
+                log::info!("Alt+Space 触发");
                 toggle_window(&app_handle);
             });
 
             if result.is_err() {
-                // Alt+Space 被占用，回退到 Alt+`
                 let app_handle2 = app.handle().clone();
                 let fallback = Shortcut::new(Some(Modifiers::ALT), Code::Backquote);
                 app.global_shortcut().on_shortcut(fallback, move |_app, _shortcut, _event| {
                     if !should_process_trigger() {
                         return;
                     }
-                    println!("Alt+` 触发");
+                    log::info!("Alt+` 触发");
                     toggle_window(&app_handle2);
                 })?;
-                println!("Alt+Space 已被占用，使用 Alt+` 作为替代");
+                log::warn!("Alt+Space 已被占用，使用 Alt+` 作为替代");
             }
 
             // 获取主窗口
@@ -148,7 +183,7 @@ fn should_process_trigger() -> bool {
     let last_ms = LAST_TRIGGER_MS.load(Ordering::SeqCst);
 
     if last_ms > 0 && now_ms.saturating_sub(last_ms) < DEBOUNCE_MS {
-        println!("忽略重复触发 (间隔: {}ms)", now_ms.saturating_sub(last_ms));
+        log::debug!("忽略重复触发 (间隔: {}ms)", now_ms.saturating_sub(last_ms));
         return false;
     }
 
@@ -237,30 +272,33 @@ fn toggle_window(app_handle: &tauri::AppHandle) {
     if let Some(window) = app_handle.get_webview_window("main") {
         match window.is_visible() {
             Ok(visible) => {
-                println!("窗口当前状态: visible={}", visible);
+                log::debug!("窗口当前状态: visible={}", visible);
                 if visible {
-                    println!("执行隐藏窗口");
+                    log::info!("执行隐藏窗口");
                     if let Err(e) = window.hide() {
-                        eprintln!("隐藏窗口失败: {}", e);
+                        log::error!("隐藏窗口失败: {}", e);
                     }
                 } else {
-                    println!("执行显示窗口");
-                    #[cfg(target_os = "windows")]
-                    apply_borderless_style(&window);
+                    log::info!("执行显示窗口");
                     if let Err(e) = window.show() {
-                        eprintln!("显示窗口失败: {}", e);
+                        log::error!("显示窗口失败: {}", e);
                     }
                     #[cfg(target_os = "windows")]
                     apply_dwm_attributes(&window);
                     if let Err(e) = window.set_focus() {
-                        eprintln!("设置焦点失败: {}", e);
+                        log::error!("设置焦点失败: {}", e);
                     }
-                    // 通知前端窗口已就绪，可以安全聚焦输入框
-                    let _ = window.emit("window-shown", ());
+                    
+                    // 延迟一小段时间通知前端，确保窗口已完全就绪
+                    let window_clone = window.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                        let _ = window_clone.emit("window-shown", ());
+                    });
                 }
             }
             Err(e) => {
-                eprintln!("窗口状态检查失败: {}", e);
+                log::error!("窗口状态检查失败: {}", e);
             }
         }
     }
@@ -273,10 +311,10 @@ fn toggle_autostart(app_handle: &tauri::AppHandle) {
     match autostart_manager.is_enabled() {
         Ok(enabled) => {
             let result = if enabled {
-                println!("禁用开机自启动");
+                log::info!("禁用开机自启动");
                 autostart_manager.disable()
             } else {
-                println!("启用开机自启动");
+                log::info!("启用开机自启动");
                 autostart_manager.enable()
             };
 
@@ -284,7 +322,7 @@ fn toggle_autostart(app_handle: &tauri::AppHandle) {
                 Ok(_) => {
                     let new_enabled = !enabled;
                     let new_label = if new_enabled { "✓ 开机自启动" } else { "开机自启动" };
-                    println!("自启动设置已更新: {}", new_label);
+                    log::info!("自启动设置已更新: {}", new_label);
 
                     // 更新托盘菜单
                     if let Some(tray) = app_handle.tray_by_id("tray") {
@@ -292,28 +330,28 @@ fn toggle_autostart(app_handle: &tauri::AppHandle) {
                         let show_item = match MenuItem::with_id(app_handle, "show", "显示搜索", true, None::<&str>) {
                             Ok(item) => item,
                             Err(e) => {
-                                eprintln!("创建菜单项失败: {}", e);
+                                log::error!("创建菜单项失败: {}", e);
                                 return;
                             }
                         };
                         let autostart_item = match MenuItem::with_id(app_handle, "autostart", new_label, true, None::<&str>) {
                             Ok(item) => item,
                             Err(e) => {
-                                eprintln!("创建菜单项失败: {}", e);
+                                log::error!("创建菜单项失败: {}", e);
                                 return;
                             }
                         };
                         let separator = match PredefinedMenuItem::separator(app_handle) {
                             Ok(item) => item,
                             Err(e) => {
-                                eprintln!("创建分隔符失败: {}", e);
+                                log::error!("创建分隔符失败: {}", e);
                                 return;
                             }
                         };
                         let quit_item = match MenuItem::with_id(app_handle, "quit", "退出", true, None::<&str>) {
                             Ok(item) => item,
                             Err(e) => {
-                                eprintln!("创建菜单项失败: {}", e);
+                                log::error!("创建菜单项失败: {}", e);
                                 return;
                             }
                         };
@@ -326,7 +364,7 @@ fn toggle_autostart(app_handle: &tauri::AppHandle) {
                             .build() {
                                 Ok(m) => m,
                                 Err(e) => {
-                                    eprintln!("构建菜单失败: {}", e);
+                                    log::error!("构建菜单失败: {}", e);
                                     return;
                                 }
                             };
@@ -334,12 +372,12 @@ fn toggle_autostart(app_handle: &tauri::AppHandle) {
                     }
                 }
                 Err(e) => {
-                    eprintln!("设置自启动失败: {}", e);
+                    log::error!("设置自启动失败: {}", e);
                 }
             }
         }
         Err(e) => {
-            eprintln!("检查自启动状态失败: {}", e);
+            log::error!("检查自启动状态失败: {}", e);
         }
     }
 }

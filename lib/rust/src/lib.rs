@@ -19,22 +19,6 @@ static LAST_TRIGGER_MS: AtomicU64 = AtomicU64::new(0);
 /// 热键触发标志 — Dart 端轮询此值
 pub static HOTKEY_TOGGLE_FLAG: AtomicBool = AtomicBool::new(false);
 
-/// 初始化后端：启动剪贴板监听、注册全局热键
-pub fn init_backend() {
-    clipboard::start_clipboard_monitor();
-    start_hotkey_listener();
-}
-
-/// 关闭后端：停止剪贴板监听
-pub fn shutdown_backend() {
-    clipboard::stop_clipboard_monitor();
-}
-
-/// Dart 端轮询：是否有热键触发事件待处理
-pub fn consume_hotkey_flag() -> bool {
-    HOTKEY_TOGGLE_FLAG.swap(false, Ordering::AcqRel)
-}
-
 /// 检查是否应该处理触发（防抖）
 pub fn should_process_trigger() -> bool {
     let now_ms = SystemTime::now()

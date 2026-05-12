@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use base64::Engine;
@@ -160,7 +159,7 @@ pub fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
             .join("Start Menu")
             .join("Programs");
         if user_start_menu.exists() {
-            scan_shortcuts(&user_start_menu, &mut apps);
+            scan_shortcuts(&user_start_menu, &mut apps, 3);
         }
     }
 
@@ -172,7 +171,7 @@ pub fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
             .join("Start Menu")
             .join("Programs");
         if sys_start_menu.exists() {
-            scan_shortcuts(&sys_start_menu, &mut apps);
+            scan_shortcuts(&sys_start_menu, &mut apps, 3);
         }
     }
 
@@ -180,13 +179,13 @@ pub fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
     if let Ok(userprofile) = std::env::var("USERPROFILE") {
         let desktop = std::path::Path::new(&userprofile).join("Desktop");
         if desktop.exists() {
-            scan_shortcuts(&desktop, &mut apps);
+            scan_shortcuts(&desktop, &mut apps, 2);
         }
         // 公共桌面
         if let Ok(ref programdata) = std::env::var("PUBLIC") {
             let public_desktop = std::path::Path::new(programdata).join("Desktop");
             if public_desktop.exists() {
-                scan_shortcuts(&public_desktop, &mut apps);
+                scan_shortcuts(&public_desktop, &mut apps, 2);
             }
         }
     }
@@ -295,12 +294,15 @@ fn is_system_exe(name: &str) -> bool {
     system_names.iter().any(|&s| lower.contains(s))
 }
 
-fn scan_shortcuts(dir: &std::path::Path, apps: &mut Vec<AppInfo>) {
+fn scan_shortcuts(dir: &std::path::Path, apps: &mut Vec<AppInfo>, depth: usize) {
+    if depth == 0 {
+        return;
+    }
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
             if path.is_dir() {
-                scan_shortcuts(&path, apps);
+                scan_shortcuts(&path, apps, depth - 1);
             } else if let Some(ext) = path.extension() {
                 if ext == "lnk" || ext == "exe" {
                     if let Some(name) = path.file_stem() {
@@ -367,16 +369,38 @@ pub fn launch_app(app: tauri::AppHandle, path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+        use winapi::um::shellapi::ShellExecuteW;
+        use winapi::um::winuser::SW_SHOWNORMAL;
 
-        Command::new("cmd")
-            .args(["/C", "start", "", &path])
-            .creation_flags(CREATE_NO_WINDOW)
+        let wide_path: Vec<u16> = OsStr::new(&path).encode_wide().chain(std::iter::once(0)).collect();
+        let operation: Vec<u16> = OsStr::new("open").encode_wide().chain(std::iter::once(0)).collect();
+
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                operation.as_ptr(),
+                wide_path.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                SW_SHOWNORMAL,
+            )
+        };
+
+        if result as isize <= 32 {
+            return Err(format!("ShellExecuteW failed with code: {}", result as isize));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
-    // 记录使用
+
     let _ = record_usage_internal(&app, &path);
     Ok(())
 }
@@ -386,7 +410,6 @@ pub fn get_app_usage(app: tauri::AppHandle) -> Result<std::collections::HashMap<
     use tauri::Manager;
     let usage_path = get_usage_path(&app)?;
     if !usage_path.exists() {
-        // 尝试从旧版本迁移
         let app_dir: std::path::PathBuf = app.path().app_data_dir().map_err(|e: tauri::Error| e.to_string())?;
         let old_path = app_dir.join("app_usage.json");
         if old_path.exists() {
@@ -410,12 +433,34 @@ pub fn open_file(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+        use winapi::um::shellapi::ShellExecuteW;
+        use winapi::um::winuser::SW_SHOWNORMAL;
 
-        Command::new("explorer")
+        let wide_path: Vec<u16> = OsStr::new(&path).encode_wide().chain(std::iter::once(0)).collect();
+        let operation: Vec<u16> = OsStr::new("open").encode_wide().chain(std::iter::once(0)).collect();
+
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                operation.as_ptr(),
+                wide_path.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                SW_SHOWNORMAL,
+            )
+        };
+
+        if result as isize <= 32 {
+            return Err(format!("ShellExecuteW failed with code: {}", result as isize));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("open")
             .arg(&path)
-            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -428,13 +473,36 @@ pub fn show_in_folder(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+        use winapi::um::shellapi::ShellExecuteW;
+        use winapi::um::winuser::SW_SHOWNORMAL;
 
-        Command::new("explorer")
-            .arg("/select,")
+        let select_arg = format!("/select,{}", path);
+        let wide_arg: Vec<u16> = OsStr::new(&select_arg).encode_wide().chain(std::iter::once(0)).collect();
+        let wide_exe: Vec<u16> = OsStr::new("explorer").encode_wide().chain(std::iter::once(0)).collect();
+
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                wide_exe.as_ptr(),
+                wide_arg.as_ptr(),
+                std::ptr::null(),
+                SW_SHOWNORMAL,
+            )
+        };
+
+        if result as isize <= 32 {
+            return Err(format!("ShellExecuteW failed with code: {}", result as isize));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
             .arg(&path)
-            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -520,29 +588,25 @@ fn extract_icon(path: &str) -> Result<Option<String>, String> {
 
 #[cfg(target_os = "windows")]
 unsafe fn hicon_to_image(hicon: winapi::shared::windef::HICON) -> Option<image::RgbaImage> {
-    use winapi::um::winuser::GetIconInfo;
-    use winapi::um::wingdi::{GetDIBits, CreateCompatibleDC, DeleteDC, DeleteObject};
-    use winapi::um::wingdi::{BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, BI_RGB};
+    use winapi::um::winuser::{GetIconInfo, ICONINFO};
+    use winapi::um::wingdi::{GetDIBits, CreateCompatibleDC, DeleteDC, DeleteObject, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, BI_RGB};
     use winapi::shared::windef::HDC;
     use winapi::shared::minwindef::DWORD;
     use winapi::ctypes::c_void;
     use std::ptr::null_mut;
     
-    // 获取图标信息
-    let mut icon_info: winapi::um::winuser::ICONINFO = std::mem::zeroed();
+    let mut icon_info: ICONINFO = std::mem::zeroed();
     if GetIconInfo(hicon, &mut icon_info) == 0 {
         return None;
     }
     
-    // 获取位图信息
     let hdc: HDC = CreateCompatibleDC(null_mut());
     if hdc.is_null() {
-        DeleteObject(icon_info.hbmColor as *mut _);
-        DeleteObject(icon_info.hbmMask as *mut _);
+        if !icon_info.hbmColor.is_null() { DeleteObject(icon_info.hbmColor as *mut _); }
+        if !icon_info.hbmMask.is_null() { DeleteObject(icon_info.hbmMask as *mut _); }
         return None;
     }
     
-    // 设置 BITMAPINFO
     let mut bmi: BITMAPINFO = std::mem::zeroed();
     bmi.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as DWORD;
     bmi.bmiHeader.biWidth = 32;
@@ -551,11 +615,16 @@ unsafe fn hicon_to_image(hicon: winapi::shared::windef::HICON) -> Option<image::
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
     
-    // 读取颜色位图
     let mut pixels: Vec<u8> = vec![0; 32 * 32 * 4];
+    let hbitmap = if !icon_info.hbmColor.is_null() {
+        icon_info.hbmColor
+    } else {
+        icon_info.hbmMask
+    };
+    
     let res = GetDIBits(
         hdc,
-        icon_info.hbmColor,
+        hbitmap,
         0,
         32,
         pixels.as_mut_ptr() as *mut c_void,
@@ -563,10 +632,9 @@ unsafe fn hicon_to_image(hicon: winapi::shared::windef::HICON) -> Option<image::
         DIB_RGB_COLORS,
     );
     
-    // 清理
     DeleteDC(hdc);
-    DeleteObject(icon_info.hbmColor as *mut _);
-    DeleteObject(icon_info.hbmMask as *mut _);
+    if !icon_info.hbmColor.is_null() { DeleteObject(icon_info.hbmColor as *mut _); }
+    if !icon_info.hbmMask.is_null() { DeleteObject(icon_info.hbmMask as *mut _); }
     
     if res == 0 {
         return None;
@@ -577,9 +645,20 @@ unsafe fn hicon_to_image(hicon: winapi::shared::windef::HICON) -> Option<image::
         let b = chunk[0];
         chunk[0] = chunk[2];
         chunk[2] = b;
+        // 如果是 Alpha 通道全为 0 且是 hbmColor（有些旧图标不带 Alpha），则设为 255
+        if !icon_info.hbmColor.is_null() && chunk[3] == 0 {
+            // 检查这是否是一个完全透明的图标，如果所有像素 A 都是 0，可能需要设置为 255
+        }
     }
     
-    // 创建 RgbaImage
+    // 特殊处理：如果所有像素的 Alpha 都是 0，说明这个图标可能没有 Alpha 通道，强制设为 255
+    let all_alpha_zero = pixels.chunks_exact(4).all(|c| c[3] == 0);
+    if all_alpha_zero && !icon_info.hbmColor.is_null() {
+        for chunk in pixels.chunks_exact_mut(4) {
+            chunk[3] = 255;
+        }
+    }
+    
     image::RgbaImage::from_raw(32, 32, pixels)
 }
 

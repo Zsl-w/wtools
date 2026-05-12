@@ -1,23 +1,48 @@
 use crate::clipboard::history::{ClipboardItem, get_clipboard_history as get_history};
 use base64::Engine;
 
-/// 获取剪贴板历史记录
+/// 获取剪贴板历史记录（图片项返回缩略图）
 #[tauri::command]
-pub fn get_clipboard_history() -> Vec<ClipboardItem> {
+pub fn get_clipboard_history() -> Result<Vec<ClipboardItem>, String> {
     let history = get_history();
-    let items = history.lock().map(|h| h.get_items().to_vec()).unwrap_or_default();
-    // 将图片文件路径转为 base64 data URI 供前端显示
-    items.into_iter().map(|mut item| {
+    let items = history.lock().map(|h| h.get_items().to_vec()).map_err(|e| e.to_string())?;
+
+    Ok(items.into_iter().map(|mut item| {
         if item.content_type == "image" {
             if let Some(ref path) = item.content {
-                if let Ok(bytes) = std::fs::read(path) {
+                // Try thumbnail first, fall back to original
+                let thumb_path = std::path::PathBuf::from(path)
+                    .with_file_name(format!("{}_thumb.png", item.id));
+                let file_to_read = if thumb_path.exists() { &thumb_path } else { std::path::Path::new(path) };
+
+                if let Ok(bytes) = std::fs::read(file_to_read) {
                     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
                     item.content = Some(format!("data:image/png;base64,{}", b64));
                 }
             }
         }
         item
-    }).collect()
+    }).collect())
+}
+
+/// 获取指定剪贴板图片的全尺寸数据（用于复制操作）
+#[tauri::command]
+pub fn get_clipboard_image(id: String) -> Result<String, String> {
+    let history = get_history();
+    let items = history.lock().map_err(|e| e.to_string())?;
+    let item = items.get_items().iter().find(|i| i.id == id)
+        .ok_or_else(|| "Item not found".to_string())?;
+
+    if item.content_type != "image" {
+        return Err("Item is not an image".to_string());
+    }
+
+    let path = item.content.as_ref()
+        .ok_or_else(|| "No image path".to_string())?;
+
+    let bytes = std::fs::read(path).map_err(|e| format!("Failed to read image: {}", e))?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+Ok(format!("data:image/png;base64,{}", b64))
 }
 
 /// 删除指定剪贴板记录

@@ -115,8 +115,16 @@ class _AppCardState extends State<_AppCard> {
   void didUpdateWidget(_AppCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.path != widget.item.path) {
-      _iconBytes = IconCache.get(widget.item.path);
-      if (_iconBytes == null) _loadIcon();
+      _iconBytes = null;
+    }
+    // Re-check cache on any rebuild (e.g. after preload completes)
+    if (_iconBytes == null) {
+      final cached = IconCache.get(widget.item.path);
+      if (cached != null) {
+        _iconBytes = cached;
+        return;
+      }
+      _loadIcon();
     }
   }
 
@@ -140,8 +148,6 @@ class _AppCardState extends State<_AppCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return GestureDetector(
       onTap: _open,
       child: Container(
@@ -151,9 +157,7 @@ class _AppCardState extends State<_AppCard> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           color: widget.isSelected
-              ? (isDark
-                  ? Colors.white.withValues(alpha: 0.10)
-                  : const Color(0xFFE8E8E8))
+              ? const Color(0xFFE8E8E8)
               : Colors.transparent,
           border: widget.isSelected
               ? Border.all(
@@ -169,7 +173,7 @@ class _AppCardState extends State<_AppCard> {
             SizedBox(
               width: 28,
               height: 28,
-              child: _buildIcon(isDark),
+              child: _buildIcon(),
             ),
             const SizedBox(height: 4),
             // Name (single line)
@@ -178,12 +182,10 @@ class _AppCardState extends State<_AppCard> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w500,
-                color: isDark
-                    ? AppColors.textPrimaryDark
-                    : AppColors.textPrimaryLight,
+                color: AppColors.textPrimary,
               ),
             ),
           ],
@@ -192,7 +194,7 @@ class _AppCardState extends State<_AppCard> {
     );
   }
 
-  Widget _buildIcon(bool isDark) {
+  Widget _buildIcon() {
     if (_iconBytes != null && _iconBytes!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(5),
@@ -201,14 +203,14 @@ class _AppCardState extends State<_AppCard> {
           width: 28,
           height: 28,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _fallbackIcon(isDark),
+          errorBuilder: (_, _, _) => _fallbackIcon(),
         ),
       );
     }
-    return _fallbackIcon(isDark);
+    return _fallbackIcon();
   }
 
-  Widget _fallbackIcon(bool isDark) {
+  Widget _fallbackIcon() {
     return Container(
       width: 28,
       height: 28,

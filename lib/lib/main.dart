@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -13,7 +14,7 @@ import 'src/utils/window_events.dart';
 const double windowWidth = 720;
 const double windowHeight = 520;
 
-late final String exeDir;
+final _startupReady = Completer<void>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,15 +23,12 @@ Future<void> main() async {
   PaintingBinding.instance.imageCache.maximumSizeBytes = 20 << 20;
   PaintingBinding.instance.imageCache.maximumSize = 256;
 
-  exeDir = Platform.resolvedExecutable.substring(
-      0, Platform.resolvedExecutable.lastIndexOf(Platform.pathSeparator));
-
   await RustLib.init();
 
   // 初始化 Rust 后端（剪贴板监听 + 全局热键）
   await rust_window.initBackend();
 
-  // ── 窗口设置 ──
+  // ── 窗口设置 & 隐藏（runApp 前设置，引擎启动后生效） ──
   await windowManager.ensureInitialized();
   await windowManager.setAsFrameless();
 
@@ -45,8 +43,6 @@ Future<void> main() async {
   );
 
   await windowManager.waitUntilReadyToShow(options, () async {});
-  // Start hidden — set opacity 0 so window initializes invisibly
-  await windowManager.setOpacity(0.0);
 
   // 拦截关闭事件：隐藏窗口而非退出
   await windowManager.setPreventClose(true);
@@ -61,11 +57,14 @@ Future<void> main() async {
   });
 
   runApp(const ProviderScope(child: WToolsApp()));
-  // After first frame, hide properly and restore opacity for future use
-  await Future.delayed(const Duration(milliseconds: 300));
+
+  // 第一帧立即隐藏窗口（不依赖opacity，避免黑闪）
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _startupReady.complete();
+  });
+  await _startupReady.future;
   await windowManager.hide();
   await windowManager.blur();
-  await windowManager.setOpacity(1.0);
 
   // ── 系统托盘（在 runApp 之后初始化，确保 asset bundle 就绪） ──
   try {
@@ -90,9 +89,15 @@ Future<void> _toggleWindow() async {
 
 /// 初始化系统托盘
 Future<void> _initSystemTray() async {
-  // Use absolute path to the icon file alongside the exe
-  final iconPath = '$exeDir/assets/icon.ico'.replaceAll('\\', '/');
-  await trayManager.setIcon(iconPath);
+  // Destroy any stale tray icon from a previous run (prevents ghost icons)
+  try { await trayManager.destroy(); } catch (_) {}
+  await Future.delayed(const Duration(milliseconds: 100));
+
+  // Save icon from asset bundle to temp file (tray_manager requires a path)
+  final iconData = await rootBundle.load('assets/icon.ico');
+  final tempIcon = File('${Directory.systemTemp.path}\\wtools_icon.ico');
+  await tempIcon.writeAsBytes(iconData.buffer.asUint8List());
+  await trayManager.setIcon(tempIcon.path);
   await trayManager.setToolTip('wTools - 快速搜索');
 
   final autostartEnabled = await rust_app.isAutostartEnabled();
@@ -117,12 +122,36 @@ class _AppWindowListener extends WindowListener {
     windowManager.hide();
     windowManager.blur();
   }
+
+  @override
+  void onWindowBlur() {
+    if (!isPickerOpen) {
+      windowManager.hide();
+      windowManager.blur();
+    }
+  }
 }
 
 class _TrayListener extends TrayListener {
   @override
   void onTrayIconMouseDown() {
     _toggleWindow();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    _showTrayMenu();
+  }
+
+  @override
+  void onTrayIconRightMouseUp() {
+    _showTrayMenu();
+  }
+
+  Future<void> _showTrayMenu() async {
+    try {
+      await trayManager.popUpContextMenu();
+    } catch (_) {}
   }
 
   @override
